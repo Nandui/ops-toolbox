@@ -1,0 +1,15 @@
+services:
+  portal:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - TRAIL_API_KEY=\${TRAIL_API_KEY}
+      - JWT_SECRET=\${JWT_SECRET:-lw-portal-production-secret}
+      - ADMIN_PASSWORD=\${ADMIN_PASSWORD:-LeisureWorld2026!}
+    volumes:
+      - portal-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  portal-data:
