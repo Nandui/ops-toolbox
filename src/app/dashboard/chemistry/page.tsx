@@ -183,8 +183,8 @@ function extractReadings(data: any): Reading[] {
     let poolLabel = 'Pool'
 
     if (isStock) poolLabel = 'Chlorine & CO2'
-    else if (/25m/i.test(name)) poolLabel = '25m Pool'
-    else if (/18m/i.test(name)) poolLabel = '18m Pool'
+    else if (/\b25\s*m/i.test(name)) poolLabel = '25m Pool'
+    else if (/\b18\s*m/i.test(name)) poolLabel = '18m Pool'
     else if (/learner/i.test(name) || /child/i.test(name)) poolLabel = 'Learners Pool'
     else if (/test/i.test(name)) poolLabel = name.replace(/[🧪🛢️]/gu, '').trim()
 
