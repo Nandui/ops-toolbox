@@ -10,7 +10,10 @@ import { SITES, USER_ROLES } from '../portal'
  * This file owns schema creation and seed data so the rest of the app can treat
  * the database as a stable service, not a pile of ad-hoc SQL strings.
  */
-const DB_PATH = path.join(process.cwd(), 'data', 'app.db')
+// Vercel's project root is read-only; /tmp is writable (ephemeral per instance)
+const DB_PATH = process.env.VERCEL
+  ? '/tmp/app.db'
+  : path.join(process.cwd(), 'data', 'app.db')
 const ROLE_CHECK_LIST = USER_ROLES.map(role => `'${role}'`).join(', ')
 
 let db: Database.Database | null = null
@@ -106,7 +109,7 @@ function seedInitialData(database: Database.Database) {
   const existing = database.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail)
   if (!existing) {
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
-    const hash = bcrypt.hashSync(adminPassword, 12)
+    const hash = bcrypt.hashSync(adminPassword, 10)
     database.prepare(`
       INSERT INTO users (email, name, password_hash, role, site_ids)
       VALUES (?, ?, ?, 'admin', '[]')
