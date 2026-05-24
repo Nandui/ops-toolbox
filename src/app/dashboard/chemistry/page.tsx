@@ -242,6 +242,13 @@ function formatTimeShort(iso: string) {
   return new Date(iso).toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })
 }
 
+function formatReadingStamp(iso: string) {
+  const d = new Date(iso)
+  const time = d.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })
+  if (sameDay(d, new Date())) return time
+  return `${d.toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })} · ${time}`
+}
+
 function parseDateInput(value: string) {
   const [year, month, day] = value.split('-').map(Number)
   return new Date(year, month - 1, day)
@@ -557,14 +564,18 @@ function MetricBlock({ metricKey, value, lastTime }: { metricKey: MetricKey; val
 
 function PoolChemCard({ poolLabel, reading }: { poolLabel: string; reading: Reading | null }) {
   const overall = getPoolOverallStatus(reading)
+  const isStale = reading ? !sameDay(new Date(reading.time), new Date()) : false
   const overallLabel = { ok: 'Stable', warning: 'Watch', critical: 'Action needed', unknown: 'No data' }[overall]
-  const lastTime = reading ? formatTimeShort(reading.time) : null
+  const lastTime = reading ? formatReadingStamp(reading.time) : null
 
   return (
     <article className="border border-white/[0.08] p-4">
       <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
         <h3 className="font-mono text-sm uppercase tracking-[0.14em] text-white">{poolLabel}</h3>
-        <StatusPill level={overall} label={overallLabel} />
+        <div className="flex items-center gap-2">
+          {isStale && <StatusPill level="outdated" label="Stale" />}
+          <StatusPill level={overall} label={overallLabel} />
+        </div>
       </div>
       <div className="mt-3 space-y-0">
         <MetricBlock metricKey="freeChlorine" value={reading?.freeChlorine ?? null} lastTime={lastTime} />
@@ -629,14 +640,15 @@ export default function ChemistryPage() {
   const chartWindow = useMemo(() => buildChartWindow(viewMode, anchorDate, anchorHour), [viewMode, anchorDate, anchorHour])
   const fetchRange = useMemo(() => buildFetchRange(viewMode, anchorDate), [viewMode, anchorDate])
 
-  // Fetch live command data (today)
+  // Fetch live command data (last 7 days so pools always show the most recent reading)
   const fetchLiveData = useCallback(async () => {
     setLiveLoading(true)
     setLiveError(null)
     try {
       const today = todayDateKey()
+      const sevenDaysAgo = formatDateKey(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
       const [chemRes, batherRes] = await Promise.all([
-        fetch(`/api/trail/chemistry?startDate=${today}&endDate=${today}`),
+        fetch(`/api/trail/chemistry?startDate=${sevenDaysAgo}&endDate=${today}`),
         fetch('/api/trail/bather-loads'),
       ])
       if (!chemRes.ok) throw new Error(`Chemistry API error: ${chemRes.status}`)
