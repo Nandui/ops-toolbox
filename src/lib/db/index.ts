@@ -109,7 +109,7 @@ function seedInitialData(database: Database.Database) {
   const existing = database.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail)
   if (!existing) {
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
-    const hash = bcrypt.hashSync(adminPassword, 12)
+    const hash = bcrypt.hashSync(adminPassword, 10)
     database.prepare(`
       INSERT INTO users (email, name, password_hash, role, site_ids)
       VALUES (?, ?, ?, 'admin', '[]')
