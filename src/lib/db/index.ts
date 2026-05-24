@@ -10,7 +10,10 @@ import { SITES, USER_ROLES } from '../portal'
  * This file owns schema creation and seed data so the rest of the app can treat
  * the database as a stable service, not a pile of ad-hoc SQL strings.
  */
-const DB_PATH = path.join(process.cwd(), 'data', 'app.db')
+// Vercel's project root is read-only; /tmp is writable (ephemeral per instance)
+const DB_PATH = process.env.VERCEL
+  ? '/tmp/app.db'
+  : path.join(process.cwd(), 'data', 'app.db')
 const ROLE_CHECK_LIST = USER_ROLES.map(role => `'${role}'`).join(', ')
 
 let db: Database.Database | null = null

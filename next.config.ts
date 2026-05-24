@@ -1,7 +1,8 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  // standalone is needed for Docker; Vercel handles its own output optimisation
+  output: process.env.VERCEL ? undefined : 'standalone',
   serverExternalPackages: ['better-sqlite3'],
 }
 
