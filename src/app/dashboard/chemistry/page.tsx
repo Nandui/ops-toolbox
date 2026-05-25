@@ -396,7 +396,7 @@ function PoolChemCard({ poolLabel, readings }: { poolLabel: string; readings: Re
   const tempKey: MetricKey = poolLabel === 'Learners Pool' ? 'waterTempLearners' : 'waterTemp'
 
   return (
-    <article className="border border-white/[0.08] p-4">
+    <article className="border border-white/[0.08] p-4 bg-white/[0.03]">
       <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
         <h3 className="font-mono text-sm uppercase tracking-[0.14em] text-white">{poolLabel}</h3>
         <div className="flex items-center gap-2">
@@ -421,7 +421,7 @@ function BatherKpiCard({ poolLabel, count, completedAt }: { poolLabel: string; c
   const isOutdated = ageMinutes === null || ageMinutes > 45
 
   return (
-    <article className="border border-white/[0.08] p-4">
+    <article className="border border-white/[0.08] p-4 bg-white/[0.03]">
       <div className="flex items-start justify-between gap-2 mb-3">
         <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400 leading-snug">
           {poolLabel}<br />swimmers now
