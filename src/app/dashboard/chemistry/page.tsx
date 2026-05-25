@@ -421,7 +421,7 @@ function BatherKpiCard({ poolLabel, count, completedAt }: { poolLabel: string; c
   const isOutdated = ageMinutes === null || ageMinutes > 45
 
   return (
-    <article className="border border-white/10 p-4 bg-white/[0.015]">
+    <article className="border border-white/[0.08] p-4">
       <div className="flex items-start justify-between gap-2 mb-3">
         <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400 leading-snug">
           {poolLabel}<br />swimmers now
@@ -550,25 +550,23 @@ export default function ChemistryPage() {
         {/* Chemistry command panel */}
         <div>
           <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Pool Chemistry</div>
-          <div className="border border-white/10">
-            {liveLoading && liveReadings.length === 0 ? (
-              <div className="p-8 text-center text-sm text-slate-500 font-mono">Loading chemistry data…</div>
-            ) : sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 0 ? (
-              <div className="p-8 text-center text-sm text-slate-500">No pools configured for this site.</div>
-            ) : (
-              <div className={`grid gap-px bg-white/[0.06] ${sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 3 ? 'grid-cols-3' : sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                {sitePoolLabels
-                  .filter(p => p !== 'Chlorine & CO2')
-                  .map(poolLabel => (
-                    <PoolChemCard
-                      key={poolLabel}
-                      poolLabel={poolLabel}
-                      readings={readingsByPool[poolLabel] ?? []}
-                    />
-                  ))}
-              </div>
-            )}
-          </div>
+          {liveLoading && liveReadings.length === 0 ? (
+            <div className="p-8 text-center text-sm text-slate-500 font-mono">Loading chemistry data…</div>
+          ) : sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 0 ? (
+            <div className="p-8 text-center text-sm text-slate-500">No pools configured for this site.</div>
+          ) : (
+            <div className={`grid gap-3 ${sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 3 ? 'grid-cols-3' : sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              {sitePoolLabels
+                .filter(p => p !== 'Chlorine & CO2')
+                .map(poolLabel => (
+                  <PoolChemCard
+                    key={poolLabel}
+                    poolLabel={poolLabel}
+                    readings={readingsByPool[poolLabel] ?? []}
+                  />
+                ))}
+            </div>
+          )}
         </div>
       </div>
 
