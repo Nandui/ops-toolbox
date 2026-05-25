@@ -238,7 +238,7 @@ function sameDay(a: Date, b: Date) { return a.getFullYear() === b.getFullYear() 
 
 // ── Command-board UI components ───────────────────────────────────────────────
 
-function StatusPill({ level, label }: { level: StatusLevel | 'live' | 'outdated'; label: string }) {
+function StatusPill({ level, label }: { level: StatusLevel | 'live' | 'outdated' | 'aged'; label: string }) {
   const cls =
     level === 'ok' || level === 'live'
       ? 'text-green-400 border-green-600/40 bg-green-500/10'
@@ -246,6 +246,8 @@ function StatusPill({ level, label }: { level: StatusLevel | 'live' | 'outdated'
       ? 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10'
       : level === 'critical'
       ? 'text-red-400 border-red-600/40 bg-red-500/10'
+      : level === 'aged'
+      ? 'text-orange-400 border-orange-500/40 bg-orange-500/10'
       : 'text-slate-500 border-slate-700 bg-transparent'
   return (
     <span className={`inline-flex items-center px-2 py-0.5 border text-[10px] font-mono tracking-widest uppercase whitespace-nowrap ${cls}`}>
@@ -308,6 +310,8 @@ function PoolChemCard({ poolLabel, reading }: { poolLabel: string; reading: Read
   const isStale = reading ? !sameDay(new Date(reading.time), new Date()) : false
   const overallLabel = { ok: 'Stable', warning: 'Watch', critical: 'Action needed', unknown: 'No data' }[overall]
   const lastTime = reading ? formatReadingStamp(reading.time) : null
+  const ageMinutes = reading ? (Date.now() - new Date(reading.time).getTime()) / 60000 : null
+  const isAged = ageMinutes !== null && ageMinutes > 135
 
   return (
     <article className="border border-white/[0.08] p-4">
@@ -315,6 +319,7 @@ function PoolChemCard({ poolLabel, reading }: { poolLabel: string; reading: Read
         <h3 className="font-mono text-sm uppercase tracking-[0.14em] text-white">{poolLabel}</h3>
         <div className="flex items-center gap-2">
           {isStale && <StatusPill level="outdated" label="Stale" />}
+          {isAged && <StatusPill level="aged" label="Old data" />}
           <StatusPill level={overall} label={overallLabel} />
         </div>
       </div>
