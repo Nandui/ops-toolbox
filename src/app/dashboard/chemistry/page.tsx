@@ -84,8 +84,8 @@ function getPoolOverallStatus(reading: Reading | null): StatusLevel {
 // ── Bather loads parsing ──────────────────────────────────────────────────────
 
 function poolLabelFromName(name: string): string | null {
-  if (/25m|main\s*pool/i.test(name)) return '25m Pool'
-  if (/18m/i.test(name)) return '18m Pool'
+  if (/25\s*m|main\s*pool/i.test(name)) return '25m Pool'
+  if (/18\s*m/i.test(name)) return '18m Pool'
   if (/learn|lp\b|learner|teach/i.test(name)) return 'Learners Pool'
   return null
 }
@@ -113,40 +113,33 @@ function parseBatherLoads(instances: any[], recordLogs: Record<string, any[]>): 
     .filter(i => i.completedDatetime)
     .sort((a, b) => b.completedDatetime.localeCompare(a.completedDatetime))
 
-  // Case 1: separate task instance per pool (pool name in task name)
   for (const inst of completed) {
-    const pool = poolLabelFromName(inst.taskInstanceName || '')
-    if (!pool || result[pool].completedAt !== null) continue
     const logs = recordLogs[String(inst.taskInstanceId)] ?? []
     const records = logs.flatMap((l: any) => l.records ?? [])
-    result[pool] = { count: getFirstNumericField(records), completedAt: new Date(inst.completedDatetime) }
-  }
+    const completedAt = new Date(inst.completedDatetime)
 
-  // Case 2: single task with per-pool record fields (e.g. one form covering all pools)
-  const ungrouped = completed.filter(i => !poolLabelFromName(i.taskInstanceName || ''))
-  if (ungrouped.length > 0) {
-    const latest = ungrouped[0]
-    const logs = recordLogs[String(latest.taskInstanceId)] ?? []
-    const records = logs.flatMap((l: any) => l.records ?? [])
-    const completedAt = new Date(latest.completedDatetime)
-
+    // Try per-field extraction first: a single task can cover multiple pools
+    // (e.g. "[BT] 25M & LP Bather Loads" has "25 Meters" and "Learners Pool" fields)
+    let fieldMatched = false
     for (const rec of records) {
       for (const [fieldName, field] of Object.entries(rec as Record<string, any>)) {
-        if (!field?.value) continue
+        if (field?.value === undefined || field.value === null || field.value === '') continue
         const num = Number(field.value)
         if (Number.isNaN(num) || num < 0) continue
         const pool = poolLabelFromName(fieldName)
-        if (pool && result[pool].count === null) {
+        if (pool && result[pool].completedAt === null) {
           result[pool] = { count: num, completedAt }
+          fieldMatched = true
         }
       }
     }
 
-    // Ensure freshness timestamps even when counts couldn't be mapped to pools
-    for (const pool of Object.keys(result)) {
-      if (result[pool].completedAt === null) {
-        result[pool] = { count: null, completedAt }
-      }
+    if (fieldMatched) continue
+
+    // Fall back: match by task name and take the first numeric field
+    const pool = poolLabelFromName(inst.taskInstanceName || '')
+    if (pool && result[pool].completedAt === null) {
+      result[pool] = { count: getFirstNumericField(records), completedAt }
     }
   }
 
