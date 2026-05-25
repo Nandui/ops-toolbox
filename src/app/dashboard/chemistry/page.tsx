@@ -583,7 +583,7 @@ function PoolChemCard({ poolLabel, reading }: { poolLabel: string; reading: Read
 
 function BatherKpiCard({ poolLabel, count, completedAt }: { poolLabel: string; count: number | null; completedAt: Date | null }) {
   const ageMinutes = completedAt ? Math.floor((Date.now() - completedAt.getTime()) / 60000) : null
-  const isOutdated = ageMinutes === null || ageMinutes > 20
+  const isOutdated = ageMinutes === null || ageMinutes > 45
 
   return (
     <article className="border border-white/10 p-4 bg-white/[0.015]">
