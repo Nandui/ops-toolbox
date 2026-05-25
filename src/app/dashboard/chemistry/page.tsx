@@ -465,35 +465,27 @@ export default function ChemistryPage() {
         </div>
 
         {/* Chemistry command panel */}
-        <div className="border border-white/10">
-          <div className="flex items-start justify-between gap-4 p-4 pb-3 border-b border-white/[0.06]">
-            <div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Priority module</div>
-              <h2 className="text-xl font-light text-white">Pool chemistry</h2>
-              <p className="mt-0.5 text-xs text-slate-400">
-                Track free chlorine and pH across the pools before the next session.
-                {liveLastFetch && <span className="ml-2 text-slate-600">Updated {new Date(liveLastFetch).toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })}</span>}
-              </p>
-            </div>
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Pool Chemistry</div>
+          <div className="border border-white/10">
+            {liveLoading && liveReadings.length === 0 ? (
+              <div className="p-8 text-center text-sm text-slate-500 font-mono">Loading chemistry data…</div>
+            ) : sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 0 ? (
+              <div className="p-8 text-center text-sm text-slate-500">No pools configured for this site.</div>
+            ) : (
+              <div className={`grid gap-px bg-white/[0.06] ${sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 3 ? 'grid-cols-3' : sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {sitePoolLabels
+                  .filter(p => p !== 'Chlorine & CO2')
+                  .map(poolLabel => (
+                    <PoolChemCard
+                      key={poolLabel}
+                      poolLabel={poolLabel}
+                      reading={latestByPool[poolLabel] ?? null}
+                    />
+                  ))}
+              </div>
+            )}
           </div>
-
-          {liveLoading && liveReadings.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-500 font-mono">Loading chemistry data…</div>
-          ) : sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-500">No pools configured for this site.</div>
-          ) : (
-            <div className={`grid gap-px bg-white/[0.06] ${sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 3 ? 'grid-cols-3' : sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              {sitePoolLabels
-                .filter(p => p !== 'Chlorine & CO2')
-                .map(poolLabel => (
-                  <PoolChemCard
-                    key={poolLabel}
-                    poolLabel={poolLabel}
-                    reading={latestByPool[poolLabel] ?? null}
-                  />
-                ))}
-            </div>
-          )}
         </div>
       </div>
 
