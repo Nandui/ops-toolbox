@@ -295,18 +295,34 @@ function RangeBar({ value, metricKey }: { value: number | null; metricKey: Metri
   })()
 
   return (
-    <div className="h-2 relative overflow-hidden rounded-sm">
-      <div className="absolute inset-y-0 left-[0%]  w-[10%] bg-red-500/40"    />
-      <div className="absolute inset-y-0 left-[10%] w-[20%] bg-yellow-400/50" />
-      <div className="absolute inset-y-0 left-[30%] w-[40%] bg-green-500/60"  />
-      <div className="absolute inset-y-0 left-[70%] w-[20%] bg-yellow-400/50" />
-      <div className="absolute inset-y-0 left-[90%] w-[10%] bg-red-500/40"    />
+    <div className="relative pt-2">
       {valuePct !== null && (
         <div
-          className="absolute inset-y-0 w-0.5 bg-white/90 shadow-[0_0_4px_rgba(255,255,255,0.4)]"
-          style={{ left: `${valuePct}%`, transform: 'translateX(-50%)' }}
+          className="absolute top-0"
+          style={{
+            left: `${valuePct}%`,
+            transform: 'translateX(-50%)',
+            width: 0,
+            height: 0,
+            borderLeft: '4px solid transparent',
+            borderRight: '4px solid transparent',
+            borderTop: '5px solid rgba(255,255,255,0.8)',
+          }}
         />
       )}
+      <div className="h-2 relative overflow-hidden rounded-sm">
+        <div className="absolute inset-y-0 left-[0%]  w-[10%] bg-red-500/40"    />
+        <div className="absolute inset-y-0 left-[10%] w-[20%] bg-yellow-400/50" />
+        <div className="absolute inset-y-0 left-[30%] w-[40%] bg-green-500/60"  />
+        <div className="absolute inset-y-0 left-[70%] w-[20%] bg-yellow-400/50" />
+        <div className="absolute inset-y-0 left-[90%] w-[10%] bg-red-500/40"    />
+        {valuePct !== null && (
+          <div
+            className="absolute inset-y-0 w-0.5 bg-white/90"
+            style={{ left: `${valuePct}%`, transform: 'translateX(-50%)' }}
+          />
+        )}
+      </div>
     </div>
   )
 }
