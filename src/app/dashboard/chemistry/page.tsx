@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { SITES } from '@/lib/portal'
 
 // ── Data types ────────────────────────────────────────────────────────────────
@@ -246,6 +246,20 @@ function formatReadingStamp(iso: string) {
 
 function sameDay(a: Date, b: Date) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate() }
 
+// ── Trend helpers ─────────────────────────────────────────────────────────────
+
+function computeTrend(readings: Reading[], metricKey: MetricKey): 'up' | 'down' | 'stable' | null {
+  const field = (metricKey === 'waterTempLearners' ? 'waterTemp' : metricKey) as keyof Reading
+  const values = readings.slice(0, 3).map(r => r[field] as number | null).filter((v): v is number => v !== null)
+  if (values.length < 2) return null
+  const current = values[0]
+  const prevAvg = values.slice(1).reduce((s, v) => s + v, 0) / values.slice(1).length
+  const threshold = (THRESHOLDS[metricKey].high - THRESHOLDS[metricKey].low) * 0.03
+  if (current > prevAvg + threshold) return 'up'
+  if (current < prevAvg - threshold) return 'down'
+  return 'stable'
+}
+
 // ── Command-board UI components ───────────────────────────────────────────────
 
 function StatusPill({ level, label }: { level: StatusLevel | 'live' | 'outdated' | 'aged'; label: string }) {
@@ -327,10 +341,11 @@ function RangeBar({ value, metricKey }: { value: number | null; metricKey: Metri
   )
 }
 
-function MetricBlock({ metricKey, value, lastTime }: { metricKey: MetricKey; value: number | null; lastTime: string | null }) {
+function MetricBlock({ metricKey, value, lastTime, recentReadings = [] }: { metricKey: MetricKey; value: number | null; lastTime: string | null; recentReadings?: Reading[] }) {
   const t = THRESHOLDS[metricKey]
   const status = getMetricStatus(value, metricKey)
   const statusLabel = getMetricStatusLabel(value, metricKey)
+  const trend = computeTrend(recentReadings, metricKey)
 
   const displayValue =
     value === null ? '—'
@@ -355,7 +370,12 @@ function MetricBlock({ metricKey, value, lastTime }: { metricKey: MetricKey; val
             {value !== null && t.unit && <span className="text-xl text-slate-400 ml-1">{t.unit}</span>}
           </div>
         </div>
-        <StatusPill level={status} label={statusLabel} />
+        <div className="flex items-center gap-1.5">
+          {trend === 'up'     && <TrendingUp   className="w-3.5 h-3.5 text-slate-400" />}
+          {trend === 'down'   && <TrendingDown className="w-3.5 h-3.5 text-slate-400" />}
+          {trend === 'stable' && <Minus        className="w-3.5 h-3.5 text-slate-400" />}
+          <StatusPill level={status} label={statusLabel} />
+        </div>
       </div>
       <RangeBar value={value} metricKey={metricKey} />
       <div className="text-[10px] text-slate-500 font-mono">
@@ -365,7 +385,8 @@ function MetricBlock({ metricKey, value, lastTime }: { metricKey: MetricKey; val
   )
 }
 
-function PoolChemCard({ poolLabel, reading }: { poolLabel: string; reading: Reading | null }) {
+function PoolChemCard({ poolLabel, readings }: { poolLabel: string; readings: Reading[] }) {
+  const reading = readings[0] ?? null
   const overall = getPoolOverallStatus(reading)
   const isStale = reading ? !sameDay(new Date(reading.time), new Date()) : false
   const overallLabel = { ok: 'Stable', warning: 'Watch', critical: 'Action needed', unknown: 'No data' }[overall]
@@ -385,10 +406,10 @@ function PoolChemCard({ poolLabel, reading }: { poolLabel: string; reading: Read
         </div>
       </div>
       <div className="mt-3 space-y-0">
-        <MetricBlock metricKey="freeChlorine" value={reading?.freeChlorine ?? null} lastTime={lastTime} />
-        <MetricBlock metricKey="ph" value={reading?.ph ?? null} lastTime={lastTime} />
+        <MetricBlock metricKey="freeChlorine" value={reading?.freeChlorine ?? null} lastTime={lastTime} recentReadings={readings} />
+        <MetricBlock metricKey="ph" value={reading?.ph ?? null} lastTime={lastTime} recentReadings={readings} />
         {reading?.waterTemp !== null && reading?.waterTemp !== undefined && (
-          <MetricBlock metricKey={tempKey} value={reading.waterTemp} lastTime={lastTime} />
+          <MetricBlock metricKey={tempKey} value={reading.waterTemp} lastTime={lastTime} recentReadings={readings} />
         )}
       </div>
     </article>
@@ -463,12 +484,13 @@ export default function ChemistryPage() {
 
   useEffect(() => { fetchLiveData() }, [fetchLiveData])
 
-  // Latest reading per pool for the selected site (command section)
-  const latestByPool = useMemo(() => {
-    const map: Record<string, Reading> = {}
+  // All readings per pool for the selected site (used for trend calculation)
+  const readingsByPool = useMemo(() => {
+    const map: Record<string, Reading[]> = {}
     for (const r of liveReadings) {
       if (r.siteId !== selectedSiteId) continue
-      if (!map[r.poolLabel]) map[r.poolLabel] = r
+      if (!map[r.poolLabel]) map[r.poolLabel] = []
+      map[r.poolLabel].push(r)
     }
     return map
   }, [liveReadings, selectedSiteId])
@@ -541,7 +563,7 @@ export default function ChemistryPage() {
                     <PoolChemCard
                       key={poolLabel}
                       poolLabel={poolLabel}
-                      reading={latestByPool[poolLabel] ?? null}
+                      readings={readingsByPool[poolLabel] ?? []}
                     />
                   ))}
               </div>
