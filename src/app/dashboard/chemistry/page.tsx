@@ -285,22 +285,22 @@ function RangeBar({ value, metricKey }: { value: number | null; metricKey: Metri
     if (value === null) return null
     if (value < low) {
       const ref = zoneW2 > 0 ? zoneW2 : span * 0.1
-      return Math.max(0, (1 - Math.min(1, (low - value) / ref)) * 20)
+      return Math.max(0, (1 - Math.min(1, (low - value) / ref)) * 10)
     }
-    if (value < idealLow)  return 20 + ((value - low)      / zoneW2) * 20
-    if (value <= idealHigh) return 40 + ((value - idealLow) / (idealHigh - idealLow)) * 20
-    if (value < high)      return 60 + ((value - idealHigh) / zoneW4) * 20
+    if (value < idealLow)   return 10 + ((value - low)       / zoneW2) * 20
+    if (value <= idealHigh) return 30 + ((value - idealLow)  / (idealHigh - idealLow)) * 40
+    if (value < high)       return 70 + ((value - idealHigh) / zoneW4) * 20
     const ref = zoneW4 > 0 ? zoneW4 : span * 0.1
-    return Math.min(100, 80 + Math.min(1, (value - high) / ref) * 20)
+    return Math.min(100, 90 + Math.min(1, (value - high) / ref) * 10)
   })()
 
   return (
     <div className="h-2 relative overflow-hidden rounded-sm">
-      <div className="absolute inset-y-0 left-[0%]  w-[20%] bg-red-500/40"    />
-      <div className="absolute inset-y-0 left-[20%] w-[20%] bg-yellow-400/50" />
-      <div className="absolute inset-y-0 left-[40%] w-[20%] bg-green-500/60"  />
-      <div className="absolute inset-y-0 left-[60%] w-[20%] bg-yellow-400/50" />
-      <div className="absolute inset-y-0 left-[80%] w-[20%] bg-red-500/40"    />
+      <div className="absolute inset-y-0 left-[0%]  w-[10%] bg-red-500/40"    />
+      <div className="absolute inset-y-0 left-[10%] w-[20%] bg-yellow-400/50" />
+      <div className="absolute inset-y-0 left-[30%] w-[40%] bg-green-500/60"  />
+      <div className="absolute inset-y-0 left-[70%] w-[20%] bg-yellow-400/50" />
+      <div className="absolute inset-y-0 left-[90%] w-[10%] bg-red-500/40"    />
       {valuePct !== null && (
         <div
           className="absolute inset-y-0 w-0.5 bg-white/90 shadow-[0_0_4px_rgba(255,255,255,0.4)]"
@@ -334,9 +334,9 @@ function MetricBlock({ metricKey, value, lastTime }: { metricKey: MetricKey; val
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500 mb-1">{t.label}</div>
-          <div className={`font-mono leading-none text-4xl ${status === 'ok' ? 'text-green-400' : status === 'warning' ? 'text-yellow-400' : status === 'critical' ? 'text-red-400' : 'text-slate-400'}`}>
+          <div className="font-mono leading-none text-white text-4xl">
             {displayValue}
-            {value !== null && t.unit && <span className="text-xl opacity-70 ml-1">{t.unit}</span>}
+            {value !== null && t.unit && <span className="text-xl text-slate-400 ml-1">{t.unit}</span>}
           </div>
         </div>
         <StatusPill level={status} label={statusLabel} />
