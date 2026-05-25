@@ -79,12 +79,6 @@ function getMetricStatusLabel(value: number | null, key: MetricKey): string {
   return value < THRESHOLDS[key].low ? 'Low' : 'High'
 }
 
-function getProgressPct(value: number | null, key: MetricKey): number {
-  if (value === null) return 0
-  const { displayMin, displayMax } = THRESHOLDS[key]
-  return Math.max(0, Math.min(100, ((value - displayMin) / (displayMax - displayMin)) * 100))
-}
-
 function getPoolOverallStatus(reading: Reading | null): StatusLevel {
   if (!reading) return 'unknown'
   const statuses: StatusLevel[] = [
@@ -272,14 +266,37 @@ function StatusPill({ level, label }: { level: StatusLevel | 'live' | 'outdated'
   )
 }
 
-function ProgressBar({ pct, level }: { pct: number; level: StatusLevel }) {
-  const fill =
-    level === 'ok'       ? 'bg-green-500'  :
-    level === 'warning'  ? 'bg-yellow-400' :
-    level === 'critical' ? 'bg-red-500'    : 'bg-slate-600'
+function RangeBar({ value, metricKey }: { value: number | null; metricKey: MetricKey }) {
+  const t = THRESHOLDS[metricKey]
+  const { displayMin, displayMax, low, high } = t
+  const span = high - low
+  const idealLow  = t.idealLow  ?? low  + span * 0.1
+  const idealHigh = t.idealHigh ?? high - span * 0.1
+  const totalRange = displayMax - displayMin
+
+  const p = (v: number) => Math.max(0, Math.min(100, ((v - displayMin) / totalRange) * 100))
+
+  const zones = [
+    { left: 0,          width: p(low),                    cls: 'bg-red-500/40'    },
+    { left: p(low),     width: p(idealLow)  - p(low),     cls: 'bg-yellow-400/50' },
+    { left: p(idealLow),width: p(idealHigh) - p(idealLow),cls: 'bg-green-500/60'  },
+    { left: p(idealHigh),width: p(high)     - p(idealHigh),cls: 'bg-yellow-400/50'},
+    { left: p(high),    width: 100           - p(high),    cls: 'bg-red-500/40'    },
+  ]
+
+  const valuePct = value !== null ? p(value) : null
+
   return (
-    <div className="h-2 bg-white/[0.08] relative overflow-hidden">
-      <div className={`absolute inset-y-0 left-0 ${fill}`} style={{ width: `${pct}%` }} />
+    <div className="h-2 relative bg-slate-800/50 overflow-hidden rounded-sm">
+      {zones.map((z, i) => (
+        <div key={i} className={`absolute inset-y-0 ${z.cls}`} style={{ left: `${z.left}%`, width: `${z.width}%` }} />
+      ))}
+      {valuePct !== null && (
+        <div
+          className="absolute inset-y-0 w-0.5 bg-white/90 shadow-[0_0_4px_rgba(255,255,255,0.5)]"
+          style={{ left: `${valuePct}%`, transform: 'translateX(-50%)' }}
+        />
+      )}
     </div>
   )
 }
@@ -287,7 +304,6 @@ function ProgressBar({ pct, level }: { pct: number; level: StatusLevel }) {
 function MetricBlock({ metricKey, value, lastTime }: { metricKey: MetricKey; value: number | null; lastTime: string | null }) {
   const t = THRESHOLDS[metricKey]
   const status = getMetricStatus(value, metricKey)
-  const pct = getProgressPct(value, metricKey)
   const statusLabel = getMetricStatusLabel(value, metricKey)
 
   const displayValue =
@@ -315,7 +331,7 @@ function MetricBlock({ metricKey, value, lastTime }: { metricKey: MetricKey; val
         </div>
         <StatusPill level={status} label={statusLabel} />
       </div>
-      <ProgressBar pct={pct} level={status} />
+      <RangeBar value={value} metricKey={metricKey} />
       <div className="text-[10px] text-slate-500 font-mono">
         {targetBand}{lastTime ? ` · last test ${lastTime}` : ''}
       </div>
