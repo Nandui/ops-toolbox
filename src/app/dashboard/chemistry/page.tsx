@@ -32,15 +32,27 @@ type BathersByPool = Record<string, PoolBather>
 
 // ── Thresholds ────────────────────────────────────────────────────────────────
 
-const THRESHOLDS = {
-  freeChlorine:    { low: 0.5,  high: 3.0, label: 'Free Cl₂',      unit: 'ppm', displayMin: 0,   displayMax: 4   },
-  totalChlorine:   { low: 1.0,  high: 4.0, label: 'Total Cl₂',     unit: 'ppm', displayMin: 0,   displayMax: 5   },
-  combinedChlorine:{ low: 0,    high: 1.0, label: 'Combined Cl₂',  unit: 'ppm', displayMin: 0,   displayMax: 1.5 },
-  ph:              { low: 7.2,  high: 7.8, label: 'pH',             unit: '',    displayMin: 7.0, displayMax: 8.0 },
-  waterTemp:       { low: 26,   high: 32,  label: 'Temp',           unit: '°C',  displayMin: 20,  displayMax: 35  },
-} as const
+interface ThresholdConfig {
+  low: number
+  high: number
+  idealLow?: number
+  idealHigh?: number
+  label: string
+  unit: string
+  displayMin: number
+  displayMax: number
+}
 
-type MetricKey = keyof typeof THRESHOLDS
+type MetricKey = 'freeChlorine' | 'totalChlorine' | 'combinedChlorine' | 'ph' | 'waterTemp' | 'waterTempLearners'
+
+const THRESHOLDS: Record<MetricKey, ThresholdConfig> = {
+  freeChlorine:      { low: 0.4, high: 2.5, idealLow: 0.8, idealHigh: 1.5, label: 'Free Cl₂',     unit: 'ppm', displayMin: 0,    displayMax: 3.5 },
+  totalChlorine:     { low: 1.0, high: 4.0,                                 label: 'Total Cl₂',    unit: 'ppm', displayMin: 0,    displayMax: 5   },
+  combinedChlorine:  { low: 0,   high: 1.0,                                 label: 'Combined Cl₂', unit: 'ppm', displayMin: 0,    displayMax: 1.5 },
+  ph:                { low: 7.1, high: 7.7,                                 label: 'pH',            unit: '',    displayMin: 6.8,  displayMax: 8.0 },
+  waterTemp:         { low: 27,  high: 29,                                  label: 'Temp',          unit: '°C',  displayMin: 25,   displayMax: 31  },
+  waterTempLearners: { low: 28,  high: 30,                                  label: 'Temp',          unit: '°C',  displayMin: 26,   displayMax: 32  },
+}
 
 // ── Status logic ──────────────────────────────────────────────────────────────
 
@@ -50,6 +62,10 @@ function getMetricStatus(value: number | null, key: MetricKey): StatusLevel {
   if (value === null) return 'unknown'
   const t = THRESHOLDS[key]
   if (value < t.low || value > t.high) return 'critical'
+  if (t.idealLow !== undefined && t.idealHigh !== undefined) {
+    if (value < t.idealLow || value > t.idealHigh) return 'warning'
+    return 'ok'
+  }
   const span = t.high - t.low
   if (value < t.low + span * 0.1 || value > t.high - span * 0.1) return 'warning'
   return 'ok'
@@ -275,15 +291,17 @@ function MetricBlock({ metricKey, value, lastTime }: { metricKey: MetricKey; val
   const statusLabel = getMetricStatusLabel(value, metricKey)
 
   const displayValue =
-    value === null      ? '—'
-    : metricKey === 'ph'       ? value.toFixed(2)
-    : metricKey === 'waterTemp'? value.toFixed(1)
+    value === null ? '—'
+    : metricKey === 'ph' ? value.toFixed(2)
+    : (metricKey === 'waterTemp' || metricKey === 'waterTempLearners') ? value.toFixed(1)
     : value.toFixed(2)
 
   const targetBand =
-    metricKey === 'ph'
-      ? `Target ${t.low.toFixed(1)}–${t.high.toFixed(1)}`
-      : `Target ${t.low}–${t.high} ${t.unit}`
+    t.idealLow !== undefined && t.idealHigh !== undefined
+      ? `Ideal ${t.idealLow}–${t.idealHigh} ${t.unit} · Acceptable ${t.low}–${t.high} ${t.unit}`
+      : metricKey === 'ph'
+      ? `Ideal 7.4 · Acceptable ${t.low.toFixed(1)}–${t.high.toFixed(1)}`
+      : `Target ${t.low}–${t.high}${t.unit ? ` ${t.unit}` : ''}`
 
   return (
     <div className="space-y-2 pt-3 border-t border-white/[0.06] first:pt-0 first:border-t-0">
@@ -312,6 +330,7 @@ function PoolChemCard({ poolLabel, reading }: { poolLabel: string; reading: Read
   const lastTime = reading ? formatReadingStamp(reading.time) : null
   const ageMinutes = reading ? (Date.now() - new Date(reading.time).getTime()) / 60000 : null
   const isAged = ageMinutes !== null && ageMinutes > 135
+  const tempKey: MetricKey = poolLabel === 'Learners Pool' ? 'waterTempLearners' : 'waterTemp'
 
   return (
     <article className="border border-white/[0.08] p-4">
@@ -327,7 +346,7 @@ function PoolChemCard({ poolLabel, reading }: { poolLabel: string; reading: Read
         <MetricBlock metricKey="freeChlorine" value={reading?.freeChlorine ?? null} lastTime={lastTime} />
         <MetricBlock metricKey="ph" value={reading?.ph ?? null} lastTime={lastTime} />
         {reading?.waterTemp !== null && reading?.waterTemp !== undefined && (
-          <MetricBlock metricKey="waterTemp" value={reading.waterTemp} lastTime={lastTime} />
+          <MetricBlock metricKey={tempKey} value={reading.waterTemp} lastTime={lastTime} />
         )}
       </div>
     </article>
