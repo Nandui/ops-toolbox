@@ -50,8 +50,8 @@ const THRESHOLDS: Record<MetricKey, ThresholdConfig> = {
   totalChlorine:     { low: 1.0, high: 4.0,                                 label: 'Total Cl₂',    unit: 'ppm', displayMin: 0,    displayMax: 5   },
   combinedChlorine:  { low: 0,   high: 1.0,                                 label: 'Combined Cl₂', unit: 'ppm', displayMin: 0,    displayMax: 1.5 },
   ph:                { low: 7.1, high: 7.7,                                 label: 'pH',            unit: '',    displayMin: 6.8,  displayMax: 8.0 },
-  waterTemp:         { low: 27,  high: 29,                                  label: 'Temp',          unit: '°C',  displayMin: 25,   displayMax: 31  },
-  waterTempLearners: { low: 28,  high: 30,                                  label: 'Temp',          unit: '°C',  displayMin: 26,   displayMax: 32  },
+  waterTemp:         { low: 27,  high: 29,  idealLow: 27,  idealHigh: 29,   label: 'Temp',          unit: '°C',  displayMin: 25,   displayMax: 31  },
+  waterTempLearners: { low: 28,  high: 30,  idealLow: 28,  idealHigh: 30,   label: 'Temp',          unit: '°C',  displayMin: 26,   displayMax: 32  },
 }
 
 // ── Status logic ──────────────────────────────────────────────────────────────
@@ -268,32 +268,42 @@ function StatusPill({ level, label }: { level: StatusLevel | 'live' | 'outdated'
 
 function RangeBar({ value, metricKey }: { value: number | null; metricKey: MetricKey }) {
   const t = THRESHOLDS[metricKey]
-  const { displayMin, displayMax, low, high } = t
+  const { low, high } = t
   const span = high - low
+  // Fall back to 10%-from-boundary if no explicit ideal defined
   const idealLow  = t.idealLow  ?? low  + span * 0.1
   const idealHigh = t.idealHigh ?? high - span * 0.1
-  const totalRange = displayMax - displayMin
 
-  const p = (v: number) => Math.max(0, Math.min(100, ((v - displayMin) / totalRange) * 100))
+  // The bar always has 5 equal visual zones centred on ideal:
+  //  0–20% red (critical low) · 20–40% yellow (watch low) ·
+  //  40–60% green (ideal)     · 60–80% yellow (watch high) · 80–100% red (critical high)
+  // The white marker position is normalised within each zone.
+  const zoneW2 = idealLow - low          // warning-low numeric width
+  const zoneW4 = high - idealHigh        // warning-high numeric width
 
-  const zones = [
-    { left: 0,          width: p(low),                    cls: 'bg-red-500/40'    },
-    { left: p(low),     width: p(idealLow)  - p(low),     cls: 'bg-yellow-400/50' },
-    { left: p(idealLow),width: p(idealHigh) - p(idealLow),cls: 'bg-green-500/60'  },
-    { left: p(idealHigh),width: p(high)     - p(idealHigh),cls: 'bg-yellow-400/50'},
-    { left: p(high),    width: 100           - p(high),    cls: 'bg-red-500/40'    },
-  ]
-
-  const valuePct = value !== null ? p(value) : null
+  const valuePct = (() => {
+    if (value === null) return null
+    if (value < low) {
+      const ref = zoneW2 > 0 ? zoneW2 : span * 0.1
+      return Math.max(0, (1 - Math.min(1, (low - value) / ref)) * 20)
+    }
+    if (value < idealLow)  return 20 + ((value - low)      / zoneW2) * 20
+    if (value <= idealHigh) return 40 + ((value - idealLow) / (idealHigh - idealLow)) * 20
+    if (value < high)      return 60 + ((value - idealHigh) / zoneW4) * 20
+    const ref = zoneW4 > 0 ? zoneW4 : span * 0.1
+    return Math.min(100, 80 + Math.min(1, (value - high) / ref) * 20)
+  })()
 
   return (
-    <div className="h-2 relative bg-slate-800/50 overflow-hidden rounded-sm">
-      {zones.map((z, i) => (
-        <div key={i} className={`absolute inset-y-0 ${z.cls}`} style={{ left: `${z.left}%`, width: `${z.width}%` }} />
-      ))}
+    <div className="h-2 relative overflow-hidden rounded-sm">
+      <div className="absolute inset-y-0 left-[0%]  w-[20%] bg-red-500/40"    />
+      <div className="absolute inset-y-0 left-[20%] w-[20%] bg-yellow-400/50" />
+      <div className="absolute inset-y-0 left-[40%] w-[20%] bg-green-500/60"  />
+      <div className="absolute inset-y-0 left-[60%] w-[20%] bg-yellow-400/50" />
+      <div className="absolute inset-y-0 left-[80%] w-[20%] bg-red-500/40"    />
       {valuePct !== null && (
         <div
-          className="absolute inset-y-0 w-0.5 bg-white/90 shadow-[0_0_4px_rgba(255,255,255,0.5)]"
+          className="absolute inset-y-0 w-0.5 bg-white/90 shadow-[0_0_4px_rgba(255,255,255,0.4)]"
           style={{ left: `${valuePct}%`, transform: 'translateX(-50%)' }}
         />
       )}
@@ -324,9 +334,9 @@ function MetricBlock({ metricKey, value, lastTime }: { metricKey: MetricKey; val
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500 mb-1">{t.label}</div>
-          <div className="font-mono leading-none text-white text-4xl">
+          <div className={`font-mono leading-none text-4xl ${status === 'ok' ? 'text-green-400' : status === 'warning' ? 'text-yellow-400' : status === 'critical' ? 'text-red-400' : 'text-slate-400'}`}>
             {displayValue}
-            {value !== null && t.unit && <span className="text-xl text-slate-400 ml-1">{t.unit}</span>}
+            {value !== null && t.unit && <span className="text-xl opacity-70 ml-1">{t.unit}</span>}
           </div>
         </div>
         <StatusPill level={status} label={statusLabel} />
