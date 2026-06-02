@@ -4,8 +4,7 @@
 // Notion SDK. `any` is intentional here for the raw property accessors.
 import { getDb } from '@/lib/db'
 
-const NOTION_VERSION = '2025-09-03'
-const INCIDENTS_DATA_SOURCE_ID = '28b4aed9-d363-8083-b13d-000b80fcbb8f'
+const NOTION_VERSION = '2022-06-28'
 const INCIDENTS_DATABASE_ID = '28b4aed9-d363-80db-b912-ec2a8cad5a70'
 
 const SITE_OPTIONS = ['Douglas', 'Churchfield', 'Bishopstown'] as const
@@ -205,7 +204,7 @@ export async function fetchActiveIncidents() {
 
     if (cursor) body.start_cursor = cursor
 
-    const data = await notionFetch(`/data_sources/${INCIDENTS_DATA_SOURCE_ID}/query`, {
+    const data = await notionFetch(`/databases/${INCIDENTS_DATABASE_ID}/query`, {
       method: 'POST',
       body: JSON.stringify(body),
     })
