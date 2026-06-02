@@ -1,6 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readSessionToken, verifySession } from '@/lib/auth'
 import { getDb } from '@/lib/db'
+import fs from 'fs'
+import path from 'path'
+
+// Maps DB setting keys to the env var name written to .env.local for persistence across restarts
+const ENV_VAR_MAP: Record<string, string> = {
+  notion_api_key: 'NOTION_API_KEY',
+}
+
+function persistToEnvLocal(key: string, value: string) {
+  const envKey = ENV_VAR_MAP[key]
+  if (!envKey) return
+  const envPath = path.join(process.cwd(), '.env.local')
+  let lines: string[] = []
+  try {
+    lines = fs.readFileSync(envPath, 'utf8').split('\n')
+  } catch {
+    // file doesn't exist yet
+  }
+  const newLine = `${envKey}=${JSON.stringify(value)}`
+  const idx = lines.findIndex(l => l.startsWith(`${envKey}=`))
+  if (idx >= 0) {
+    lines[idx] = newLine
+  } else {
+    lines.push(newLine)
+  }
+  fs.writeFileSync(envPath, lines.join('\n'), 'utf8')
+}
 
 const SENSITIVE_KEYS = new Set(['notion_api_key'])
 
@@ -45,5 +72,6 @@ export async function PATCH(request: NextRequest) {
   const db = getDb()
   db.prepare(`INSERT OR REPLACE INTO system_settings (key, value, updated_at)
               VALUES (?, ?, datetime('now'))`).run(key, value)
+  persistToEnvLocal(key, value)
   return NextResponse.json({ ok: true })
 }
