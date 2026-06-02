@@ -5,8 +5,14 @@ import { useState, useEffect } from 'react'
 import { ROLE_LABELS } from '@/lib/portal'
 
 interface UserInfo {
-  id: number; email: string; name: string; role: string
-  site_ids: string; active: number; last_login_at: string | null; created_at: string
+  id: number
+  email: string
+  name: string
+  role: string
+  site_ids: string
+  active: number
+  last_login_at: string | null
+  created_at: string
 }
 
 export default function UsersPage() {
@@ -23,47 +29,88 @@ export default function UsersPage() {
   }, [isAdmin])
 
   if (!user || !isAdmin) {
-    return <div className="text-center py-12 text-red-400">Access denied</div>
+    return (
+      <div className="border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-mono text-red-400">
+        Access denied
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
+
+      {/* ── Header ─────────────────────────────────────────────────────────────── */}
       <div>
-        <h1 className="text-2xl font-bold text-white">User Management</h1>
-        <p className="text-zinc-400 mt-1">Manage portal users and access levels</p>
+        <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Admin console</div>
+        <h1 className="text-3xl font-light text-white">User management</h1>
       </div>
-      {loading ? (
-        <div className="text-center py-12 text-zinc-500">Loading users...</div>
-      ) : (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-800 text-zinc-500 text-left">
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Email</th>
-                <th className="px-4 py-3 font-medium">Role</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Last Login</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(u => (
-                <tr key={u.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
-                  <td className="px-4 py-3 text-white">{u.name}</td>
-                  <td className="px-4 py-3 text-zinc-300">{u.email}</td>
-                  <td className="px-4 py-3 text-zinc-300">{ROLE_LABELS[u.role as keyof typeof ROLE_LABELS] || u.role}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${u.active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-700 text-zinc-400 border border-zinc-600'}`}>
-                      {u.active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-500">{u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('en-IE') : 'Never'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+      {/* ── KPI strip ──────────────────────────────────────────────────────────── */}
+      {!loading && (
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Overview</div>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Total users',  value: users.length },
+              { label: 'Active',       value: users.filter(u => u.active).length },
+              { label: 'Inactive',     value: users.filter(u => !u.active).length },
+            ].map(({ label, value }) => (
+              <article key={label} className="border border-white/[0.08] bg-white/[0.03] p-4">
+                <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500 mb-2">{label}</div>
+                <div className="font-mono text-3xl font-light text-white">{value}</div>
+              </article>
+            ))}
+          </div>
         </div>
       )}
+
+      {/* ── Users table ────────────────────────────────────────────────────────── */}
+      <div>
+        <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Users</div>
+        {loading ? (
+          <div className="border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm font-mono text-slate-500">
+            Loading…
+          </div>
+        ) : (
+          <article className="border border-white/[0.08] bg-white/[0.03] overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/[0.08]">
+                  {['Name', 'Email', 'Role', 'Status', 'Last login'].map(h => (
+                    <th key={h} className="text-left px-4 py-2.5 text-[10px] font-mono uppercase tracking-wider text-slate-500 font-normal">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 py-3 text-white text-sm">{u.name}</td>
+                    <td className="px-4 py-3 text-slate-400 text-[11px] font-mono">{u.email}</td>
+                    <td className="px-4 py-3 text-[11px] font-mono text-slate-400">
+                      {ROLE_LABELS[u.role as keyof typeof ROLE_LABELS] || u.role}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block border px-2 py-0.5 text-[10px] font-mono tracking-widest uppercase whitespace-nowrap ${
+                        u.active
+                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                          : 'border-white/10 bg-white/[0.03] text-slate-500'
+                      }`}>
+                        {u.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-[11px] font-mono text-slate-500">
+                      {u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('en-IE') : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </article>
+        )}
+      </div>
+
     </div>
   )
 }

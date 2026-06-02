@@ -17,7 +17,6 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Setting[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Notion key form state
   const [notionKey, setNotionKey] = useState('')
   const [showKey, setShowKey] = useState(false)
   const [savingNotion, setSavingNotion] = useState(false)
@@ -38,8 +37,7 @@ export default function SettingsPage() {
     loadSettings()
   }, [isAdmin])
 
-  const notionSetting = settings.find(s => s.key === 'notion_api_key')
-  const notionConfigured = notionSetting?.configured ?? false
+  const notionConfigured = settings.find(s => s.key === 'notion_api_key')?.configured ?? false
 
   async function saveNotionKey() {
     if (!notionKey.trim()) return
@@ -68,53 +66,56 @@ export default function SettingsPage() {
   }
 
   if (!user || !isAdmin) {
-    return <div className="text-center py-12 text-red-400">Access denied</div>
+    return (
+      <div className="border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-mono text-red-400">
+        Access denied
+      </div>
+    )
   }
 
   const displaySettings = settings.filter(s => s.key !== 'notion_api_key')
 
   return (
     <div className="space-y-6">
+
+      {/* ── Header ─────────────────────────────────────────────────────────────── */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Settings</h1>
-        <p className="text-zinc-400 mt-1">Portal configuration</p>
+        <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Admin console</div>
+        <h1 className="text-3xl font-light text-white">Settings</h1>
       </div>
 
-      {/* Notion Integration */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-white">Notion Integration</h2>
-            <p className="text-sm text-zinc-400 mt-0.5">
+      {/* ── Notion Integration ─────────────────────────────────────────────────── */}
+      <div>
+        <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Notion integration</div>
+        <article className="border border-white/[0.08] bg-white/[0.03] p-5 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <p className="text-xs text-slate-500 max-w-lg">
               Used for the incidents database. Create an Internal Integration Token in your Notion workspace settings.
             </p>
+            {notionConfigured && (
+              <span className="shrink-0 flex items-center gap-1.5 border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono tracking-widest uppercase text-emerald-300">
+                <CheckCircle2 className="w-3 h-3" />Configured
+              </span>
+            )}
           </div>
-          {notionConfigured && (
-            <span className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Configured
-            </span>
-          )}
-        </div>
 
-        <div className="space-y-3">
-          <label className="block">
-            <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">
               {notionConfigured ? 'Replace API key' : 'API key'}
-            </span>
-            <div className="mt-1.5 flex gap-2">
+            </div>
+            <div className="flex gap-2">
               <div className="relative flex-1">
                 <input
                   type={showKey ? 'text' : 'password'}
                   value={notionKey}
                   onChange={e => { setNotionKey(e.target.value); setNotionStatus('idle') }}
-                  placeholder={notionConfigured ? 'Enter new key to replace the existing one' : 'secret_…'}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2.5 pr-10 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 font-mono"
+                  placeholder={notionConfigured ? 'Enter new key to replace existing' : 'secret_…'}
+                  className="w-full border border-white/10 bg-slate-900/80 px-3 py-2.5 pr-10 text-sm text-white placeholder:text-slate-600 font-mono focus:outline-none focus:border-white/20"
                 />
                 <button
                   type="button"
                   onClick={() => setShowKey(v => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
                 >
                   {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -122,76 +123,72 @@ export default function SettingsPage() {
               <button
                 onClick={saveNotionKey}
                 disabled={savingNotion || !notionKey.trim()}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white text-zinc-900 text-sm font-medium rounded-lg hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-mono text-slate-200 hover:bg-white/[0.08] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {savingNotion && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
                 Save
               </button>
             </div>
-          </label>
+          </div>
 
           {notionStatus === 'saved' && (
-            <p className="text-sm text-emerald-400 flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4" /> API key saved successfully.
+            <p className="text-[11px] font-mono text-emerald-400 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" />API key saved.
             </p>
           )}
           {notionStatus === 'error' && (
-            <p className="text-sm text-red-400">{notionError}</p>
+            <p className="text-[11px] font-mono text-red-400">{notionError}</p>
           )}
-        </div>
+        </article>
       </div>
 
-      {/* Trail API info */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-        <h2 className="text-lg font-semibold text-white mb-3">Trail API Connection</h2>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-zinc-500">Base URL</p>
-            <p className="text-zinc-300 font-mono">https://web.trailapp.com/api/public</p>
+      {/* ── Trail API ──────────────────────────────────────────────────────────── */}
+      <div>
+        <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Trail API connection</div>
+        <article className="border border-white/[0.08] bg-white/[0.03] p-5">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-[11px] font-mono">
+            {[
+              { label: 'Base URL',  value: 'https://web.trailapp.com/api/public' },
+              { label: 'API key',   value: '••••••••••••' },
+              { label: 'Sites',     value: SITES.map(s => s.name).join(', ') },
+              { label: 'Cache TTL', value: '5 min (chemistry/tasks) · 60 min (scores)' },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <div className="text-slate-500 mb-0.5">{label}</div>
+                <div className="text-slate-300">{value}</div>
+              </div>
+            ))}
           </div>
-          <div>
-            <p className="text-zinc-500">API Key</p>
-            <p className="text-zinc-300 font-mono">••••••••••••</p>
-          </div>
-          <div>
-            <p className="text-zinc-500">Sites</p>
-            <p className="text-zinc-300">{SITES.map(site => site.name).join(', ')}</p>
-          </div>
-          <div>
-            <p className="text-zinc-500">Cache TTL</p>
-            <p className="text-zinc-300">5 min (chemistry/tasks), 60 min (scores)</p>
-          </div>
-        </div>
+        </article>
       </div>
 
-      {/* System settings table */}
-      {loading ? (
-        <div className="text-center py-12 text-zinc-500">Loading settings...</div>
-      ) : displaySettings.length > 0 && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-          <div className="px-5 py-3 border-b border-zinc-800">
-            <h2 className="text-sm font-semibold text-white">System settings</h2>
-          </div>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-zinc-800 text-xs text-zinc-500">
-                <th className="text-left px-5 py-3 font-medium">Key</th>
-                <th className="text-left px-5 py-3 font-medium">Value</th>
-                <th className="text-left px-5 py-3 font-medium">Updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displaySettings.map(s => (
-                <tr key={s.key} className="border-b border-zinc-800/50 last:border-0">
-                  <td className="px-5 py-3 text-sm text-white font-mono">{s.key}</td>
-                  <td className="px-5 py-3 text-sm text-zinc-300 font-mono">{s.value}</td>
-                  <td className="px-5 py-3 text-xs text-zinc-500">{s.updated_at}</td>
+      {/* ── System settings ────────────────────────────────────────────────────── */}
+      {!loading && displaySettings.length > 0 && (
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">System settings</div>
+          <article className="border border-white/[0.08] bg-white/[0.03] overflow-hidden">
+            <table className="w-full text-[11px] font-mono">
+              <thead>
+                <tr className="border-b border-white/[0.08]">
+                  <th className="text-left px-4 py-2.5 text-slate-500 font-normal tracking-wider uppercase text-[10px]">Key</th>
+                  <th className="text-left px-4 py-2.5 text-slate-500 font-normal tracking-wider uppercase text-[10px]">Value</th>
+                  <th className="text-left px-4 py-2.5 text-slate-500 font-normal tracking-wider uppercase text-[10px]">Updated</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {displaySettings.map(s => (
+                  <tr key={s.key} className="border-b border-white/[0.04] last:border-0">
+                    <td className="px-4 py-2.5 text-slate-300">{s.key}</td>
+                    <td className="px-4 py-2.5 text-slate-400">{s.value}</td>
+                    <td className="px-4 py-2.5 text-slate-600">{s.updated_at}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </article>
         </div>
       )}
+
     </div>
   )
 }
