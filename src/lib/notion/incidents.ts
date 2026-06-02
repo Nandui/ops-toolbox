@@ -2,6 +2,8 @@
 // Notion's API returns deeply polymorphic property values (rich_text, select,
 // people, files, formula…) that cannot be cleanly typed without the official
 // Notion SDK. `any` is intentional here for the raw property accessors.
+import { getDb } from '@/lib/db'
+
 const NOTION_VERSION = '2025-09-03'
 const INCIDENTS_DATA_SOURCE_ID = '28b4aed9-d363-8083-b13d-000b80fcbb8f'
 const INCIDENTS_DATABASE_ID = '28b4aed9-d363-80db-b912-ec2a8cad5a70'
@@ -80,8 +82,11 @@ export type CreateIncidentInput = {
 }
 
 function getApiKey() {
+  const db = getDb()
+  const row = db.prepare('SELECT value FROM system_settings WHERE key = ?').get('notion_api_key') as { value: string } | undefined
+  if (row?.value) return row.value
   const key = process.env.NOTION_API_KEY
-  if (!key) throw new Error('NOTION_API_KEY environment variable is not set')
+  if (!key) throw new Error('Notion API key not configured — set it in Admin → Settings or via the NOTION_API_KEY environment variable.')
   return key
 }
 
