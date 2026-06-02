@@ -153,10 +153,10 @@ export default function HandoversPage() {
                     {details[String(ho.taskInstanceId)].flatMap((log, logIdx) =>
                       log.records.map((rec, ri) => (
                         <div key={`${logIdx}-${ri}`} className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-[11px] font-mono">
-                          {Object.entries(rec).map(([key, val]) => (
-                            <div key={key}>
-                              <span className="text-slate-500">{key.replace(/_/g, ' ')}: </span>
-                              <span className="text-slate-300">{String(val ?? '—')}</span>
+                          {Object.values(rec).map(field => (
+                            <div key={field.id}>
+                              <span className="text-slate-500">{field.name}: </span>
+                              <span className="text-slate-300">{field.value != null && field.value !== '' ? String(field.value) : '—'}</span>
                             </div>
                           ))}
                         </div>
