@@ -28,6 +28,7 @@ export default function DashboardPage() {
 
   // Render date client-side only to avoid hydration mismatch
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDateStr(new Date().toLocaleDateString('en-IE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
   }, [])
 

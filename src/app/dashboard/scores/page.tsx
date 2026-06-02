@@ -35,7 +35,10 @@ export default function ScoresPage() {
     }
   }, [interval, days])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData()
+  }, [fetchData])
 
   function scoreColor(score: number) {
     if (score >= 90) return 'text-emerald-400'

@@ -174,7 +174,7 @@ export interface TrailRecordField {
 
 export interface TrailRecordLog {
   recordLogId: number
-  records: Record<string, TrailRecordField & { [key: string]: any }>[]
+  records: Record<string, TrailRecordField & { [key: string]: unknown }>[]
   hasError: boolean
 }
 

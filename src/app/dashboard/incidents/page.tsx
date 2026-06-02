@@ -149,6 +149,7 @@ export default function IncidentsPage() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchData('initial')
   }, [fetchData])
 

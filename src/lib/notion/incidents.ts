@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Notion's API returns deeply polymorphic property values (rich_text, select,
+// people, files, formula…) that cannot be cleanly typed without the official
+// Notion SDK. `any` is intentional here for the raw property accessors.
 const NOTION_VERSION = '2025-09-03'
 const INCIDENTS_DATA_SOURCE_ID = '28b4aed9-d363-8083-b13d-000b80fcbb8f'
 const INCIDENTS_DATABASE_ID = '28b4aed9-d363-80db-b912-ec2a8cad5a70'

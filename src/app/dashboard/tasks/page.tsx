@@ -43,7 +43,10 @@ export default function TasksPage() {
     }
   }, [date])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData()
+  }, [fetchData])
 
   const now = new Date()
   const filtered = tasks.filter(t => {

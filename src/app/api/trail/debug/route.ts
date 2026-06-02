@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { fetchAllTaskInstances, fetchRecordLogs, CHEMISTRY_TEMPLATE_IDS } from '@/lib/trail/client'
+import { NextResponse } from 'next/server'
+import { fetchAllTaskInstances, fetchRecordLogs, CHEMISTRY_TEMPLATE_IDS, type TrailRecordLog } from '@/lib/trail/client'
 
 // Temporary diagnostic endpoint — shows raw instance names and field names
 // from Trail for the last 14 days so we can verify template IDs and naming.
 // Remove once field mapping is confirmed correct.
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const end = new Date()
     const start = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
@@ -16,9 +16,9 @@ export async function GET(request: NextRequest) {
     const recordLogs = completedIds.length > 0 ? await fetchRecordLogs(completedIds.slice(0, 20)) : {}
 
     const summary = instances.map(inst => {
-      const logs = (recordLogs as Record<string, any[]>)[String(inst.taskInstanceId)] ?? []
+      const logs = (recordLogs as Record<string, TrailRecordLog[]>)[String(inst.taskInstanceId)] ?? []
       const fieldNames = [...new Set(
-        logs.flatMap((l: any) => (l.records ?? []).flatMap((r: any) => Object.keys(r)))
+        logs.flatMap(l => l.records.flatMap(r => Object.keys(r)))
       )]
       return {
         taskInstanceId: inst.taskInstanceId,

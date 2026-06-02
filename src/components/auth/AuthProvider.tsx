@@ -1,7 +1,6 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
 import type { SessionUser } from '@/lib/auth'
 
 export type AuthUser = SessionUser
@@ -26,7 +25,6 @@ export function useAuth(): AuthContextType {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
-  const router = useRouter()
 
   useEffect(() => {
     let cancelled = false

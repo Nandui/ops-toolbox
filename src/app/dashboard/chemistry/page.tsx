@@ -3,6 +3,15 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { RefreshCw, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { SITES } from '@/lib/portal'
+import type { TrailTaskInstance, TrailRecordLog } from '@/lib/trail/client'
+
+// ── API response shape ────────────────────────────────────────────────────────
+
+interface ChemApiData {
+  instances?: TrailTaskInstance[]
+  recordLogs?: Record<string, TrailRecordLog[]>
+  fetchedAt?: string
+}
 
 // ── Data types ────────────────────────────────────────────────────────────────
 
@@ -100,7 +109,7 @@ function poolLabelFromName(name: string): string | null {
   return null
 }
 
-function getFirstNumericField(records: Record<string, any>[]): number | null {
+function getFirstNumericField(records: TrailRecordLog['records']): number | null {
   for (const rec of records) {
     for (const field of Object.values(rec)) {
       if (field?.value !== undefined && field.value !== null && field.value !== '') {
@@ -112,7 +121,7 @@ function getFirstNumericField(records: Record<string, any>[]): number | null {
   return null
 }
 
-function parseBatherLoads(instances: any[], recordLogs: Record<string, any[]>): BathersByPool {
+function parseBatherLoads(instances: TrailTaskInstance[], recordLogs: Record<string, TrailRecordLog[]>): BathersByPool {
   const result: BathersByPool = {
     '25m Pool':      { count: null, completedAt: null },
     '18m Pool':      { count: null, completedAt: null },
@@ -121,18 +130,18 @@ function parseBatherLoads(instances: any[], recordLogs: Record<string, any[]>): 
 
   const completed = [...instances]
     .filter(i => i.completedDatetime)
-    .sort((a, b) => b.completedDatetime.localeCompare(a.completedDatetime))
+    .sort((a, b) => b.completedDatetime!.localeCompare(a.completedDatetime!))
 
   for (const inst of completed) {
     const logs = recordLogs[String(inst.taskInstanceId)] ?? []
-    const records = logs.flatMap((l: any) => l.records ?? [])
-    const completedAt = new Date(inst.completedDatetime)
+    const records = logs.flatMap(l => l.records)
+    const completedAt = new Date(inst.completedDatetime!)
 
     // Try per-field extraction first: a single task can cover multiple pools
     // (e.g. "[BT] 25M & LP Bather Loads" has "25 Meters" and "Learners Pool" fields)
     let fieldMatched = false
     for (const rec of records) {
-      for (const [fieldName, field] of Object.entries(rec as Record<string, any>)) {
+      for (const [fieldName, field] of Object.entries(rec)) {
         if (field?.value === undefined || field.value === null || field.value === '') continue
         const num = Number(field.value)
         if (Number.isNaN(num) || num < 0) continue
@@ -158,7 +167,7 @@ function parseBatherLoads(instances: any[], recordLogs: Record<string, any[]>): 
 
 // ── Chemistry data extraction ─────────────────────────────────────────────────
 
-function getField(records: Record<string, any>[], fieldName: string): number | null {
+function getField(records: TrailRecordLog['records'], fieldName: string): number | null {
   for (const rec of records) {
     const field = rec[fieldName]
     if (field && field.value !== undefined && field.value !== null && field.value !== '') {
@@ -173,12 +182,12 @@ function isCO2Stock(name: string) {
   return /chlorine.*co2/i.test(name) || /co2.*chlorine/i.test(name) || /🛢️/u.test(name)
 }
 
-function extractReadings(data: any): Reading[] {
+function extractReadings(data: ChemApiData): Reading[] {
   const extracted: Reading[] = []
   if (!data.recordLogs) return extracted
 
-  for (const [instanceId, logEntries] of Object.entries(data.recordLogs as Record<string, any[]>)) {
-    const instance = data.instances?.find((i: any) => i.taskInstanceId === Number(instanceId))
+  for (const [instanceId, logEntries] of Object.entries(data.recordLogs)) {
+    const instance = data.instances?.find(i => i.taskInstanceId === Number(instanceId))
     if (!instance) continue
 
     const name: string = instance.taskInstanceName || ''
@@ -192,8 +201,7 @@ function extractReadings(data: any): Reading[] {
     else if (/test/i.test(name)) poolLabel = name.replace(/[🧪🛢️]/gu, '').trim()
 
     for (const log of logEntries) {
-      const records = (log as any).records as Record<string, any>[] | undefined
-      if (!records) continue
+      const { records } = log
 
       extracted.push({
         time: instance.completedDatetime || instance.dueFromDatetime,
@@ -391,6 +399,7 @@ function PoolChemCard({ poolLabel, readings }: { poolLabel: string; readings: Re
   const isStale = reading ? !sameDay(new Date(reading.time), new Date()) : false
   const overallLabel = { ok: 'Stable', warning: 'Watch', critical: 'Action needed', unknown: 'No data' }[overall]
   const lastTime = reading ? formatReadingStamp(reading.time) : null
+  // eslint-disable-next-line react-hooks/purity
   const ageMinutes = reading ? (Date.now() - new Date(reading.time).getTime()) / 60000 : null
   const isAged = ageMinutes !== null && ageMinutes > 135
   const tempKey: MetricKey = poolLabel === 'Learners Pool' ? 'waterTempLearners' : 'waterTemp'
@@ -417,6 +426,7 @@ function PoolChemCard({ poolLabel, readings }: { poolLabel: string; readings: Re
 }
 
 function BatherKpiCard({ poolLabel, count, completedAt }: { poolLabel: string; count: number | null; completedAt: Date | null }) {
+  // eslint-disable-next-line react-hooks/purity
   const ageMinutes = completedAt ? Math.floor((Date.now() - completedAt.getTime()) / 60000) : null
   const isOutdated = ageMinutes === null || ageMinutes > 45
 
@@ -450,7 +460,6 @@ export default function ChemistryPage() {
   const [batherData, setBatherData] = useState<BathersByPool>({})
   const [liveLoading, setLiveLoading] = useState(true)
   const [liveError, setLiveError] = useState<string | null>(null)
-  const [liveLastFetch, setLiveLastFetch] = useState<string | null>(null)
 
   // Site selection
   const [selectedSiteId, setSelectedSiteId] = useState<number>(SITES[0].id)
@@ -472,9 +481,8 @@ export default function ChemistryPage() {
       const chemData = await chemRes.json()
       const batherRaw = await batherRes.json()
 
-      setLiveReadings(extractReadings(chemData))
+      setLiveReadings(extractReadings(chemData as ChemApiData))
       setBatherData(parseBatherLoads(batherRaw.instances ?? [], batherRaw.recordLogs ?? {}))
-      setLiveLastFetch(chemData.fetchedAt)
     } catch (err) {
       setLiveError(String(err))
     } finally {
@@ -482,7 +490,10 @@ export default function ChemistryPage() {
     }
   }, [])
 
-  useEffect(() => { fetchLiveData() }, [fetchLiveData])
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchLiveData()
+  }, [fetchLiveData])
 
   // All readings per pool for the selected site (used for trend calculation)
   const readingsByPool = useMemo(() => {

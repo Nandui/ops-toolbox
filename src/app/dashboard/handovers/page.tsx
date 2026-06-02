@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { ClipboardList, RefreshCw, MapPin, User, Calendar } from 'lucide-react'
+import type { TrailTaskInstance, TrailRecordLog } from '@/lib/trail/client'
 
 export default function HandoversPage() {
-  const [handovers, setHandovers] = useState<any[]>([])
-  const [details, setDetails] = useState<Record<string, any>>({})
+  const [handovers, setHandovers] = useState<TrailTaskInstance[]>([])
+  const [details, setDetails] = useState<Record<string, TrailRecordLog[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [days, setDays] = useState(7)
@@ -28,7 +29,10 @@ export default function HandoversPage() {
     }
   }, [days])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData()
+  }, [fetchData])
 
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString('en-IE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -84,9 +88,9 @@ export default function HandoversPage() {
 
               {details[String(ho.taskInstanceId)] && (
                 <div className="mt-3 pt-3 border-t border-zinc-800 space-y-2">
-                  {details[String(ho.taskInstanceId)].flatMap((log: any) =>
-                    (log.records || []).map((rec: any, ri: number) => (
-                      <div key={ri} className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                  {details[String(ho.taskInstanceId)].flatMap((log, logIdx) =>
+                    log.records.map((rec, ri) => (
+                      <div key={`${logIdx}-${ri}`} className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
                         {Object.entries(rec).map(([key, val]) => (
                           <div key={key}>
                             <span className="text-zinc-500">{key.replace(/_/g, ' ')}:</span>{' '}
