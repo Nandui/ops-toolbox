@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Building2, Lock, Mail, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Building2, Lock, Mail, Eye, EyeOff, Loader2, Zap } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -9,6 +9,23 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [bypassing, setBypassing] = useState(false)
+
+  async function handleBypass() {
+    setBypassing(true)
+    try {
+      const res = await fetch('/api/auth/bypass-login', { method: 'POST' })
+      if (res.ok) {
+        window.location.href = '/dashboard'
+      } else {
+        setError('Bypass login failed')
+        setBypassing(false)
+      }
+    } catch {
+      setError('Network error')
+      setBypassing(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -141,7 +158,18 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs text-slate-500">
+        <div className="mt-4">
+          <button
+            onClick={handleBypass}
+            disabled={bypassing}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800/80 hover:text-white disabled:opacity-50"
+          >
+            {bypassing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+            Login
+          </button>
+        </div>
+
+        <p className="mt-4 text-center text-xs text-slate-500">
           LeisureWorld Cork · Manager Portal v1.0
         </p>
       </div>
