@@ -19,6 +19,53 @@ function Pill({ level, label }: { level: PillLevel; label: string }) {
   )
 }
 
+// ── Record field helpers ───────────────────────────────────────────────────────
+
+type RawField = { id: string; name: string; value: string | number | null; type: string }
+
+function isField(v: unknown): v is RawField {
+  return typeof v === 'object' && v !== null && 'id' in v && 'type' in v && 'value' in v
+}
+
+function formatFieldValue(field: RawField): string {
+  if (field.value == null || field.value === '') return '—'
+  if (field.type === 'dateTime' || field.type === 'date') {
+    try {
+      return new Date(String(field.value)).toLocaleString('en-IE', {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      })
+    } catch { return String(field.value) }
+  }
+  return String(field.value)
+}
+
+// Collects all { sectionName, fields[] } from a single record object.
+// Top-level fields (no section) go under sectionName = ''.
+function extractSections(rec: Record<string, unknown>): Array<{ section: string; fields: RawField[] }> {
+  const topFields: RawField[] = []
+  const sections: Array<{ section: string; fields: RawField[] }> = []
+
+  for (const [key, val] of Object.entries(rec)) {
+    if (key === 'hasError' || key === 'lastUpdatedAt') continue
+    if (isField(val)) {
+      topFields.push(val)
+    } else if (typeof val === 'object' && val !== null) {
+      const nested: RawField[] = []
+      for (const [, nv] of Object.entries(val as Record<string, unknown>)) {
+        if (isField(nv)) nested.push(nv)
+      }
+      if (nested.length) sections.push({ section: key, fields: nested })
+    }
+  }
+
+  return [
+    ...(topFields.length ? [{ section: '', fields: topFields }] : []),
+    ...sections,
+  ]
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function HandoversPage() {
   const [handovers, setHandovers] = useState<TrailTaskInstance[]>([])
   const [details, setDetails] = useState<Record<string, TrailRecordLog[]>>({})
@@ -121,47 +168,56 @@ export default function HandoversPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {handovers.map(ho => (
-              <article key={ho.taskInstanceId} className="border border-white/[0.08] bg-white/[0.03] p-4">
+            {handovers.map(ho => {
+              const logs = details[String(ho.taskInstanceId)] ?? []
+              const allSections = logs.flatMap(log =>
+                log.records.flatMap(rec => extractSections(rec as unknown as Record<string, unknown>))
+              )
 
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  <span className="text-sm text-white font-medium">{ho.taskInstanceName}</span>
-                  <Pill level={ho.completedDatetime ? 'ok' : 'pending'} label={ho.completedDatetime ? 'Completed' : 'Pending'} />
-                </div>
+              return (
+                <article key={ho.taskInstanceId} className="border border-white/[0.08] bg-white/[0.03] p-4">
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-mono text-slate-500">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />{ho.siteName}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />{formatDate(ho.dueFromDatetime)}
-                  </span>
-                  {ho.completedByUserName && (
-                    <span className="flex items-center gap-1">
-                      <User className="w-3 h-3" />{ho.completedByUserName}
-                    </span>
-                  )}
-                  {ho.completedDatetime && (
-                    <span className="text-slate-600">
-                      completed {formatDate(ho.completedDatetime)}
-                    </span>
-                  )}
-                </div>
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <span className="text-sm text-white font-medium">{ho.taskInstanceName}</span>
+                    <Pill level={ho.completedDatetime ? 'ok' : 'pending'} label={ho.completedDatetime ? 'Completed' : 'Pending'} />
+                  </div>
 
-                {details[String(ho.taskInstanceId)] && (
-                  <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-2">
-                    {details[String(ho.taskInstanceId)].flatMap((log, logIdx) =>
-                      log.records.map((rec, ri) => (
-                        <div key={`${logIdx}-${ri}`} className="col-span-full text-[11px] font-mono">
-                          <pre className="text-slate-400 whitespace-pre-wrap break-all">{JSON.stringify(rec, null, 2)}</pre>
-                        </div>
-                      ))
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-mono text-slate-500 mb-3">
+                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{ho.siteName}</span>
+                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(ho.dueFromDatetime)}</span>
+                    {ho.completedByUserName && (
+                      <span className="flex items-center gap-1"><User className="w-3 h-3" />{ho.completedByUserName}</span>
+                    )}
+                    {ho.completedDatetime && (
+                      <span className="text-slate-600">completed {formatDate(ho.completedDatetime)}</span>
                     )}
                   </div>
-                )}
 
-              </article>
-            ))}
+                  {allSections.length > 0 && (
+                    <div className="border-t border-white/[0.06] pt-3 space-y-4">
+                      {allSections.map(({ section, fields }) => (
+                        <div key={section || '__top__'}>
+                          {section && (
+                            <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500 mb-2">
+                              {section}
+                            </div>
+                          )}
+                          <div className="space-y-2">
+                            {fields.map(field => (
+                              <div key={field.id}>
+                                <div className="text-[11px] text-slate-500 leading-snug mb-0.5">{field.name}</div>
+                                <div className="text-[12px] text-slate-200 leading-snug">{formatFieldValue(field)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                </article>
+              )
+            })}
           </div>
         )}
       </div>
