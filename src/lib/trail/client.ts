@@ -213,7 +213,7 @@ export const TEMPLATE_IDS = {
   handoverCF:        656562,
   dailyOpsLog:       348734,
   rescueEquipBT:     244057,
-  bathrLoads:        475274,
+  bathrLoads:        820783,
 } as const
 
 export const CHEMISTRY_TEMPLATE_IDS = [
