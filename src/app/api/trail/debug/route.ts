@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { fetchAllTaskInstances, fetchRecordLogs, CHEMISTRY_TEMPLATE_IDS, type TrailRecordLog } from '@/lib/trail/client'
+import { fetchAllTaskInstances, fetchRecordLogs, CHEMISTRY_TEMPLATE_IDS, HANDOVER_TEMPLATE_IDS, type TrailRecordLog } from '@/lib/trail/client'
 
-// Temporary diagnostic endpoint — shows raw instance names and field names
-// from Trail for the last 14 days so we can verify template IDs and naming.
+// Temporary diagnostic endpoint — shows raw instance names, field names, and
+// first record's raw field objects so we can verify the actual API shape.
 // Remove once field mapping is confirmed correct.
 export async function GET() {
   try {
@@ -10,29 +10,39 @@ export async function GET() {
     const start = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
     const fmt = (d: Date) => d.toISOString().split('T')[0]
 
-    const instances = await fetchAllTaskInstances(fmt(start), fmt(end), CHEMISTRY_TEMPLATE_IDS)
+    const [chemInstances, handoverInstances] = await Promise.all([
+      fetchAllTaskInstances(fmt(start), fmt(end), CHEMISTRY_TEMPLATE_IDS),
+      fetchAllTaskInstances(fmt(start), fmt(end), HANDOVER_TEMPLATE_IDS),
+    ])
 
-    const completedIds = instances.filter(i => i.completedDatetime).map(i => i.taskInstanceId)
-    const recordLogs = completedIds.length > 0 ? await fetchRecordLogs(completedIds.slice(0, 20)) : {}
+    const chemIds = chemInstances.filter(i => i.completedDatetime).map(i => i.taskInstanceId)
+    const handoverIds = handoverInstances.filter(i => i.completedDatetime).map(i => i.taskInstanceId)
 
-    const summary = instances.map(inst => {
-      const logs = (recordLogs as Record<string, TrailRecordLog[]>)[String(inst.taskInstanceId)] ?? []
-      const fieldNames = [...new Set(
-        logs.flatMap(l => l.records.flatMap(r => Object.keys(r)))
-      )]
-      return {
-        taskInstanceId: inst.taskInstanceId,
-        taskInstanceName: inst.taskInstanceName,
-        taskTemplateId: inst.taskTemplateId,
-        siteName: inst.siteName,
-        siteId: inst.siteId,
-        completed: !!inst.completedDatetime,
-        completedDatetime: inst.completedDatetime,
-        fieldNames,
-      }
+    const [chemLogs, handoverLogs] = await Promise.all([
+      chemIds.length > 0 ? fetchRecordLogs(chemIds.slice(0, 5)) : {},
+      handoverIds.length > 0 ? fetchRecordLogs(handoverIds.slice(0, 5)) : {},
+    ])
+
+    function summarise(instances: typeof chemInstances, recordLogs: Record<string, TrailRecordLog[]>) {
+      return instances.slice(0, 5).map(inst => {
+        const logs = recordLogs[String(inst.taskInstanceId)] ?? []
+        const firstRecord = logs[0]?.records[0] ?? null
+        return {
+          taskInstanceId: inst.taskInstanceId,
+          taskInstanceName: inst.taskInstanceName,
+          completed: !!inst.completedDatetime,
+          fieldNames: [...new Set(logs.flatMap(l => l.records.flatMap(r => Object.keys(r))))],
+          // Raw first record so we can inspect the actual field object shape
+          rawFirstRecord: firstRecord,
+        }
+      })
+    }
+
+    return NextResponse.json({
+      dateRange: `${fmt(start)} → ${fmt(end)}`,
+      chemistry: summarise(chemInstances, chemLogs as Record<string, TrailRecordLog[]>),
+      handovers: summarise(handoverInstances, handoverLogs as Record<string, TrailRecordLog[]>),
     })
-
-    return NextResponse.json({ dateRange: `${fmt(start)} → ${fmt(end)}`, count: instances.length, summary })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
