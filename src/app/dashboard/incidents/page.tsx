@@ -120,9 +120,12 @@ function Pill({ level, label }: { level: PillLevel; label: string }) {
   )
 }
 
+type Tab = 'active' | 'submit'
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function IncidentsPage() {
+  const [tab, setTab] = useState<Tab>('active')
   const [incidents, setIncidents] = useState<ActiveIncident[]>([])
   const [options, setOptions] = useState<IncidentOptionSet>({ sites: [], categories: [], severities: [], areas: [] })
   const [reporter, setReporter] = useState<IncidentsApiResponse['reporter']>(null)
@@ -197,6 +200,7 @@ export default function IncidentsPage() {
       setSuccess(`Incident submitted to Notion${data.reporterMatched ? ' and linked to your account' : ''}.`)
       setCreatedUrl(data.url || null)
       setForm(prev => ({ ...prev, reportTitle: '', incidentTime: '', description: '', peopleInvolved: '', reviewNotes: '', fileUrls: '' }))
+      setTab('active')
       await fetchData('refresh')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -223,29 +227,43 @@ export default function IncidentsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
 
       {/* ── Header ────────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-white/10">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Operations console</div>
-          <h1 className="text-3xl font-light text-white leading-tight">Incident log</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Active incidents pulled live from Notion.
-            {reporter
-              ? <span className="ml-2 text-slate-500">Reporting as <span className="text-slate-300">{reporter.name}</span></span>
-              : <span className="ml-2 text-yellow-500/80">No Notion user match for your portal account</span>
-            }
-          </p>
+          <h1 className="text-3xl font-light text-white">Incident log</h1>
         </div>
-        <button
-          onClick={() => void fetchData('refresh')}
-          disabled={loading || refreshing}
-          className="flex items-center gap-2 border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-300 hover:border-white/20 hover:text-white disabled:opacity-50 transition-colors"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        {tab === 'active' && (
+          <button
+            onClick={() => void fetchData('refresh')}
+            disabled={loading || refreshing}
+            className="border border-white/10 bg-slate-900/80 p-2 text-slate-400 hover:text-white disabled:opacity-40 transition-colors mt-1"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+        )}
+      </div>
+
+      {/* ── Tabs ──────────────────────────────────────────────────────────────── */}
+      <div className="flex gap-1">
+        {([
+          { id: 'active', label: 'Active incidents' },
+          { id: 'submit', label: 'Submit incident' },
+        ] as const).map(t => (
+          <button
+            key={t.id}
+            onClick={() => { setTab(t.id); setError(null); setSuccess(null) }}
+            className={`px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest border transition-colors ${
+              tab === t.id
+                ? 'border-white/[0.15] bg-white/[0.05] text-white'
+                : 'border-transparent text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* ── Alerts ────────────────────────────────────────────────────────────── */}
@@ -264,32 +282,120 @@ export default function IncidentsPage() {
         </div>
       )}
 
-      {/* ── KPI strip ─────────────────────────────────────────────────────────── */}
-      <div>
-        <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Overview</div>
-        <div className="grid grid-cols-4 gap-3">
-          {[
-            { label: 'Active incidents', value: activeCount, level: activeCount > 0 ? 'critical' : 'ok' as PillLevel },
-            { label: 'High / critical', value: highCount, level: highCount > 0 ? 'critical' : 'ok' as PillLevel },
-            { label: 'Status buckets', value: Object.keys(statusCounts).length, level: 'neutral' as PillLevel },
-            { label: 'Attachments', value: attachedCount, level: 'neutral' as PillLevel },
-          ].map(({ label, value }) => (
-            <article key={label} className="border border-white/[0.08] bg-white/[0.03] p-4">
-              <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500 mb-2">{label}</div>
-              <div className="font-mono text-3xl font-light text-white">{value}</div>
-            </article>
-          ))}
-        </div>
-      </div>
+      {/* ── Active incidents tab ──────────────────────────────────────────────── */}
+      {tab === 'active' && (
+        <>
+          {/* KPI strip */}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Overview</div>
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { label: 'Active incidents', value: activeCount },
+                { label: 'High / critical',  value: highCount  },
+                { label: 'Status buckets',   value: Object.keys(statusCounts).length },
+                { label: 'Attachments',      value: attachedCount },
+              ].map(({ label, value }) => (
+                <article key={label} className="border border-white/[0.08] bg-white/[0.03] p-4">
+                  <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500 mb-2">{label}</div>
+                  <div className="font-mono text-3xl font-light text-white">{value}</div>
+                </article>
+              ))}
+            </div>
+          </div>
 
-      {/* ── Two-column layout ─────────────────────────────────────────────────── */}
-      <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+          {/* Incidents list */}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Incidents</div>
+            <div className="space-y-2">
+              {incidents.length === 0 ? (
+                <div className="border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm text-slate-500 font-mono">
+                  No active incidents in Notion
+                </div>
+              ) : incidents.map(incident => (
+                <article key={incident.pageId} className="border border-white/[0.08] bg-white/[0.03] p-4">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <p className="text-sm font-medium text-white min-w-0 flex-1">{incident.title}</p>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {incident.severity && <Pill level={severityLevel(incident.severity)} label={incident.severity} />}
+                      <Pill level={statusLevel(incident.status)} label={incident.status} />
+                    </div>
+                  </div>
 
-        {/* Submit form */}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 font-mono mb-2">
+                    {incident.site && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{incident.site}</span>}
+                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(incident.incidentDate)}</span>
+                    {incident.incidentTime && <span className="flex items-center gap-1"><Clock3 className="w-3 h-3" />{incident.incidentTime}</span>}
+                    {incident.daysOpen != null && <span className="flex items-center gap-1"><BadgeAlert className="w-3 h-3" />{incident.daysOpen}d open</span>}
+                    <span className="flex items-center gap-1 ml-auto text-slate-600">
+                      {formatCreatedAt(incident.createdTime)}
+                      <a href={incident.url} target="_blank" rel="noreferrer" className="ml-1 text-slate-500 hover:text-slate-300">
+                        <Link2 className="w-3 h-3" />
+                      </a>
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                    <MetaLine icon={<Tag className="w-3 h-3" />} label="Category" value={incident.category || '—'} />
+                    <MetaLine icon={<MapPin className="w-3 h-3" />} label="Area" value={incident.likelyArea || '—'} />
+                    <MetaLine icon={<User className="w-3 h-3" />} label="Reported by" value={incident.reportedBy.map(p => p.name).join(', ') || '—'} />
+                    <MetaLine icon={<Paperclip className="w-3 h-3" />} label="Files" value={String(incident.files.length)} />
+                  </div>
+
+                  {incident.peopleInvolved && (
+                    <p className="mt-2 text-[11px] font-mono text-slate-400 border-t border-white/[0.06] pt-2">
+                      <span className="text-slate-600">People involved · </span>{incident.peopleInvolved}
+                    </p>
+                  )}
+                  {incident.reviewNotes && (
+                    <p className="mt-1.5 text-[11px] font-mono text-slate-400">
+                      <span className="text-slate-600">Review notes · </span>{incident.reviewNotes}
+                    </p>
+                  )}
+                  {incident.files.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {incident.files.map(file => (
+                        <a key={`${incident.pageId}-${file.name}`} href={file.url || incident.url}
+                          target="_blank" rel="noreferrer"
+                          className="text-[10px] font-mono text-slate-400 border border-white/[0.08] px-2 py-0.5 hover:text-slate-200 transition-colors">
+                          {file.name}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          </div>
+
+          {/* Status breakdown */}
+          {Object.keys(statusCounts).length > 0 && (
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">By status</div>
+              <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4">
+                {Object.entries(statusCounts).map(([status, count]) => (
+                  <article key={status} className="border border-white/[0.08] bg-white/[0.03] p-3 flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">{status}</span>
+                    <span className="font-mono text-lg text-white">{count}</span>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Submit incident tab ───────────────────────────────────────────────── */}
+      {tab === 'submit' && (
         <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Submit incident</div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">New incident report</div>
           <div className="border border-white/[0.08] bg-white/[0.03] p-5 space-y-4">
-            <p className="text-xs text-slate-500">Creates a new record in the Notion incidents database. Status defaults to Not Reviewed.</p>
+            <p className="text-xs text-slate-500">
+              Creates a new record in the Notion incidents database. Status defaults to Not Reviewed.
+              {reporter
+                ? <span className="ml-1">Reporting as <span className="text-slate-300">{reporter.name}</span>.</span>
+                : <span className="ml-1 text-yellow-500/80">No Notion user match for your portal account.</span>
+              }
+            </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -359,95 +465,6 @@ export default function IncidentsPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-
-        {/* Active incidents list */}
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Active incidents</div>
-          <div className="space-y-2">
-            {incidents.length === 0 ? (
-              <div className="border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm text-slate-500 font-mono">
-                No active incidents in Notion
-              </div>
-            ) : incidents.map(incident => (
-              <article key={incident.pageId} className="border border-white/[0.08] bg-white/[0.03] p-4">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-white truncate">{incident.title}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {incident.severity && (
-                      <Pill level={severityLevel(incident.severity)} label={incident.severity} />
-                    )}
-                    <Pill level={statusLevel(incident.status)} label={incident.status} />
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 font-mono mb-2">
-                  {incident.site && (
-                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{incident.site}</span>
-                  )}
-                  <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(incident.incidentDate)}</span>
-                  {incident.incidentTime && (
-                    <span className="flex items-center gap-1"><Clock3 className="w-3 h-3" />{incident.incidentTime}</span>
-                  )}
-                  {incident.daysOpen != null && (
-                    <span className="flex items-center gap-1"><BadgeAlert className="w-3 h-3" />{incident.daysOpen}d open</span>
-                  )}
-                  <span className="flex items-center gap-1 ml-auto text-slate-600">
-                    {formatCreatedAt(incident.createdTime)}
-                    <a href={incident.url} target="_blank" rel="noreferrer" className="ml-1 text-slate-500 hover:text-slate-300">
-                      <Link2 className="w-3 h-3" />
-                    </a>
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-                  <MetaLine icon={<Tag className="w-3 h-3" />} label="Category" value={incident.category || '—'} />
-                  <MetaLine icon={<MapPin className="w-3 h-3" />} label="Area" value={incident.likelyArea || '—'} />
-                  <MetaLine icon={<User className="w-3 h-3" />} label="Reported by" value={incident.reportedBy.map(p => p.name).join(', ') || '—'} />
-                  <MetaLine icon={<Paperclip className="w-3 h-3" />} label="Files" value={String(incident.files.length)} />
-                </div>
-
-                {incident.peopleInvolved && (
-                  <p className="mt-2 text-[11px] font-mono text-slate-400 border-t border-white/[0.06] pt-2">
-                    <span className="text-slate-600">People involved · </span>{incident.peopleInvolved}
-                  </p>
-                )}
-                {incident.reviewNotes && (
-                  <p className="mt-1.5 text-[11px] font-mono text-slate-400">
-                    <span className="text-slate-600">Review notes · </span>{incident.reviewNotes}
-                  </p>
-                )}
-                {incident.files.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {incident.files.map(file => (
-                      <a key={`${incident.pageId}-${file.name}`} href={file.url || incident.url}
-                        target="_blank" rel="noreferrer"
-                        className="text-[10px] font-mono text-slate-400 border border-white/[0.08] px-2 py-0.5 hover:text-slate-200 transition-colors">
-                        {file.name}
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Status breakdown ──────────────────────────────────────────────────── */}
-      {Object.keys(statusCounts).length > 0 && (
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">By status</div>
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4">
-            {Object.entries(statusCounts).map(([status, count]) => (
-              <article key={status} className="border border-white/[0.08] bg-white/[0.03] p-3 flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">{status}</span>
-                <span className="font-mono text-lg text-white">{count}</span>
-              </article>
-            ))}
           </div>
         </div>
       )}
