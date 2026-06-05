@@ -126,6 +126,7 @@ type Tab = 'active' | 'submit'
 
 export default function IncidentsPage() {
   const [tab, setTab] = useState<Tab>('active')
+  const [siteFilter, setSiteFilter] = useState<string>('')
   const [incidents, setIncidents] = useState<ActiveIncident[]>([])
   const [options, setOptions] = useState<IncidentOptionSet>({ sites: [], categories: [], severities: [], areas: [] })
   const [reporter, setReporter] = useState<IncidentsApiResponse['reporter']>(null)
@@ -174,10 +175,14 @@ export default function IncidentsPage() {
     void fetchData('initial')
   }, [fetchData])
 
-  const statusCounts = useMemo(() => countActiveByStatus(incidents), [incidents])
-  const activeCount = incidents.length
-  const highCount = incidents.filter(i => ['high', 'critical'].includes((i.severity || '').toLowerCase())).length
-  const attachedCount = incidents.reduce((sum, i) => sum + i.files.length, 0)
+  const visibleIncidents = useMemo(
+    () => siteFilter ? incidents.filter(i => i.site === siteFilter) : incidents,
+    [incidents, siteFilter]
+  )
+  const statusCounts = useMemo(() => countActiveByStatus(visibleIncidents), [visibleIncidents])
+  const activeCount = visibleIncidents.length
+  const highCount = visibleIncidents.filter(i => ['high', 'critical'].includes((i.severity || '').toLowerCase())).length
+  const attachedCount = visibleIncidents.reduce((sum, i) => sum + i.files.length, 0)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -236,13 +241,23 @@ export default function IncidentsPage() {
           <h1 className="text-3xl font-light text-white">Incident log</h1>
         </div>
         {tab === 'active' && (
-          <button
-            onClick={() => void fetchData('refresh')}
-            disabled={loading || refreshing}
-            className="border border-white/10 bg-slate-900/80 p-2 text-slate-400 hover:text-white disabled:opacity-40 transition-colors mt-1"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2 mt-1">
+            <select
+              value={siteFilter}
+              onChange={e => setSiteFilter(e.target.value)}
+              className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-white/20"
+            >
+              <option value="">All sites</option>
+              {options.sites.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <button
+              onClick={() => void fetchData('refresh')}
+              disabled={loading || refreshing}
+              className="border border-white/10 bg-slate-900/80 p-2 text-slate-400 hover:text-white disabled:opacity-40 transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         )}
       </div>
 
@@ -307,11 +322,11 @@ export default function IncidentsPage() {
           <div>
             <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Incidents</div>
             <div className="space-y-2">
-              {incidents.length === 0 ? (
+              {visibleIncidents.length === 0 ? (
                 <div className="border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm text-slate-500 font-mono">
-                  No active incidents in Notion
+                  {siteFilter ? `No active incidents for ${siteFilter}` : 'No active incidents in Notion'}
                 </div>
-              ) : incidents.map(incident => (
+              ) : visibleIncidents.map(incident => (
                 <article key={incident.pageId} className="border border-white/[0.08] bg-white/[0.03] p-4">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <p className="text-sm font-medium text-white min-w-0 flex-1">{incident.title}</p>
