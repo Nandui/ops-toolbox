@@ -18,7 +18,8 @@ export default function LoginPage() {
       if (res.ok) {
         window.location.href = '/dashboard'
       } else {
-        setError('Bypass login failed')
+        const body = await res.json().catch(() => null)
+        setError(body?.error ?? 'Bypass login failed')
         setBypassing(false)
       }
     } catch {
