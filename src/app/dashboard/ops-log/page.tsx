@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { RefreshCw, Plus, Trash2, Save, Copy, Printer, Lock, History, ChevronDown, ChevronUp } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { RefreshCw, Plus, Trash2, Save, Copy, Printer, Lock, History, ChevronDown, ChevronUp, Download } from 'lucide-react'
 import { SITES } from '@/lib/portal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -38,6 +39,9 @@ interface ChangeEntry {
   old_value: string
   new_value: string
 }
+
+interface BookingEntry { time: string; activity: string }
+interface DeptPlanData { sections: OpsSection[]; poolBookings: BookingEntry[]; gymBookings: BookingEntry[] }
 
 type LogStatus = 'draft' | 'approved'
 
@@ -110,6 +114,36 @@ function mergeStoredSections(stored: OpsLogData): OpsSection[] {
     // Recompute break entitlement so stored rows reflect current rules
     return { ...found, rows: found.rows.map(r => r.shift ? { ...r, breakMins: breakEntitlement(r.shift).mins } : r) }
   })
+}
+
+function mergePlanIntoLog(current: OpsLogData, plan: DeptPlanData): OpsLogData {
+  const sections = current.sections.map(section => {
+    const planSection = plan.sections?.find(s => s.id === section.id)
+    if (!planSection) return section
+    const planRows = planSection.rows.filter(r => r.name.trim())
+    if (planRows.length === 0) return section
+    const existingNames = new Set(section.rows.map(r => r.name.trim().toLowerCase()).filter(Boolean))
+    const toAdd = planRows.filter(r => !existingNames.has(r.name.trim().toLowerCase()))
+    if (toAdd.length === 0) return section
+    const nonEmpty = section.rows.filter(r => r.name.trim() || r.shift.trim() || r.duties.trim())
+    return { ...section, rows: [...nonEmpty, ...toAdd] }
+  })
+
+  const formatBookings = (entries: BookingEntry[]) =>
+    entries
+      .filter(e => e.time || e.activity)
+      .sort((a, b) => a.time.localeCompare(b.time))
+      .map(e => [e.time, e.activity].filter(Boolean).join(' — '))
+      .join('\n')
+
+  const poolText = formatBookings(plan.poolBookings ?? [])
+  const gymText  = formatBookings(plan.gymBookings ?? [])
+
+  return {
+    sections,
+    poolBookings: poolText || current.poolBookings,
+    gymBookings:  gymText  || current.gymBookings,
+  }
 }
 
 // ── Print / export ────────────────────────────────────────────────────────────
@@ -290,8 +324,12 @@ function StatusPill({ status }: { status: LogStatus }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OpsLogPage() {
-  const [date, setDate]       = useState(todayKey())
-  const [siteId, setSiteId]   = useState<number>(SITES[0].id)
+  const params = useSearchParams()
+  const [date, setDate]       = useState(() => params.get('date') ?? todayKey())
+  const [siteId, setSiteId]   = useState<number>(() => {
+    const p = params.get('siteId')
+    return p ? Number(p) : SITES[0].id
+  })
   const [log, setLog]         = useState<OpsLogData>(blankLog())
   const [meta, setMeta]       = useState<LogMeta>(EMPTY_META)
   const [changes, setChanges] = useState<ChangeEntry[]>([])
@@ -301,6 +339,8 @@ export default function OpsLogPage() {
   const [flash, setFlash]     = useState(false)
   const [error, setError]     = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [loadingPlan, setLoadingPlan] = useState(false)
+  const [planBanner, setPlanBanner]   = useState<string | null>(null)
 
   const isApproved = meta.status === 'approved'
 
@@ -372,6 +412,20 @@ export default function OpsLogPage() {
     } catch (e) { setError(String(e)) }
   }, [date, siteId])
 
+  const loadPlan = useCallback(async () => {
+    setLoadingPlan(true); setError(null)
+    try {
+      const res = await fetch(`/api/dept-plan?date=${date}&siteId=${siteId}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      if (!json.plan) { setError('No department plan found for this date. Create one in the Dept Plan page first.'); return }
+      setLog(l => mergePlanIntoLog(l, json.plan as DeptPlanData))
+      setPlanBanner(`Loaded from dept plan (saved by ${json.updatedBy ?? 'supervisor'} · ${formatStamp(json.updatedAt)})`)
+      setDirty(true)
+    } catch (e) { setError(String(e)) }
+    finally { setLoadingPlan(false) }
+  }, [date, siteId])
+
   const updateSection = (sectionId: string, rows: OpsRow[]) => {
     setLog(l => ({ ...l, sections: l.sections.map(s => s.id === sectionId ? { ...s, rows } : s) }))
     setDirty(true)
@@ -439,6 +493,14 @@ export default function OpsLogPage() {
 
         <div className="flex items-center gap-2 flex-wrap">
           {!isApproved && (
+            <button onClick={loadPlan} disabled={loadingPlan}
+              title="Merge the department supervisor's plan for this day into the log"
+              className="border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm text-blue-300 hover:bg-blue-500/20 disabled:opacity-40 transition-colors flex items-center gap-2 font-mono">
+              <Download className="w-3.5 h-3.5" />
+              {loadingPlan ? 'Loading…' : 'Load plan'}
+            </button>
+          )}
+          {!isApproved && (
             <button onClick={copyPrev} title="Copy previous day as starting point"
               className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-2 font-mono">
               <Copy className="w-3.5 h-3.5" /> Copy prev
@@ -467,6 +529,14 @@ export default function OpsLogPage() {
           </button>
         </div>
       </div>
+
+      {/* Plan load banner */}
+      {planBanner && (
+        <div className="border border-blue-500/20 bg-blue-500/5 px-4 py-2.5 text-[11px] font-mono text-blue-300/90 -mt-3 flex items-center justify-between">
+          <span>{planBanner}</span>
+          <button onClick={() => setPlanBanner(null)} className="text-blue-400/50 hover:text-blue-300 ml-4">✕</button>
+        </div>
+      )}
 
       {/* Amendment notice */}
       {isApproved && (

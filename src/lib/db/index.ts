@@ -120,6 +120,18 @@ async function initSchema(sql: Sql) {
       new_value TEXT NOT NULL
     )`)
 
+  await sql.query(`
+    CREATE TABLE IF NOT EXISTS dept_plans (
+      id SERIAL PRIMARY KEY,
+      site_id INTEGER NOT NULL,
+      plan_date TEXT NOT NULL,
+      data JSONB NOT NULL,
+      created_by TEXT NOT NULL,
+      updated_by TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE(site_id, plan_date)
+    )`)
+
   await seedInitialData(sql)
 }
 
