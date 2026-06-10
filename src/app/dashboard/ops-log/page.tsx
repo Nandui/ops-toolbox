@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, Plus, Trash2, Save, Copy, Printer } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { RefreshCw, Plus, Trash2, Save, Copy, Printer, Lock, History, ChevronDown, ChevronUp } from 'lucide-react'
 import { SITES } from '@/lib/portal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -29,6 +29,28 @@ interface OpsLogData {
   gymBookings: string
 }
 
+interface ChangeEntry {
+  changed_by: string
+  changed_at: string
+  section: string
+  staff_name: string
+  field: string
+  old_value: string
+  new_value: string
+}
+
+type LogStatus = 'draft' | 'approved'
+
+interface LogMeta {
+  status: LogStatus
+  approvedBy: string | null
+  approvedAt: string | null
+  updatedBy: string | null
+  updatedAt: string | null
+}
+
+const EMPTY_META: LogMeta = { status: 'draft', approvedBy: null, approvedAt: null, updatedBy: null, updatedAt: null }
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SECTION_DEFS = [
@@ -47,6 +69,14 @@ const inputCls = 'w-full border border-white/10 bg-slate-900/80 px-2 py-1.5 text
 
 function emptyRow(): OpsRow {
   return { name: '', shift: '', breakMins: '', break1: '', break2: '', break3: '', duties: '', extra: '' }
+}
+
+function blankLog(): OpsLogData {
+  return {
+    sections: SECTION_DEFS.map(s => ({ ...s, rows: [emptyRow()] })),
+    poolBookings: '',
+    gymBookings: '',
+  }
 }
 
 // ── Break entitlement rules ───────────────────────────────────────────────────
@@ -74,14 +104,6 @@ function breakEntitlement(shift: string): { mins: string; detail: string } {
   return { mins: '75', detail: '45 min unpaid + 2 × 15 min paid' }
 }
 
-function blankLog(): OpsLogData {
-  return {
-    sections: SECTION_DEFS.map(s => ({ ...s, rows: [emptyRow()] })),
-    poolBookings: '',
-    gymBookings: '',
-  }
-}
-
 function mergeStoredSections(stored: OpsLogData): OpsSection[] {
   return SECTION_DEFS.map(def => {
     const found = stored.sections?.find(s => s.id === def.id) ?? { ...def, rows: [emptyRow()] }
@@ -96,7 +118,7 @@ function escapeHtml(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function buildPrintHtml(log: OpsLogData, siteName: string, dayLabel: string): string {
+function buildPrintHtml(log: OpsLogData, siteName: string, dayLabel: string, meta: LogMeta, changes: ChangeEntry[]): string {
   const sectionsHtml = log.sections.map(section => {
     const rows = section.rows.filter(r => r.name.trim() || r.shift.trim() || r.duties.trim() || r.extra.trim())
     if (rows.length === 0) return ''
@@ -122,6 +144,29 @@ function buildPrintHtml(log: OpsLogData, siteName: string, dayLabel: string): st
     ? `<div class="bookings"><h2>${label}</h2><p>${escapeHtml(value).replace(/\n/g, '<br>')}</p></div>`
     : ''
 
+  const approvalLine = meta.approvedBy
+    ? `Approved by ${escapeHtml(meta.approvedBy)} · ${new Date(meta.approvedAt!).toLocaleString('en-IE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+    : ''
+
+  const amendmentsHtml = changes.length > 0 ? `
+  <div class="amendments">
+    <h2>Amendments since approval</h2>
+    <table>
+      <thead><tr><th>Time</th><th>By</th><th>Section</th><th>Staff</th><th>Field</th><th>Was</th><th>Now</th></tr></thead>
+      <tbody>
+        ${changes.map(c => `<tr>
+          <td class="mono">${new Date(c.changed_at).toLocaleString('en-IE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+          <td>${escapeHtml(c.changed_by)}</td>
+          <td>${escapeHtml(c.section)}</td>
+          <td>${escapeHtml(c.staff_name)}</td>
+          <td>${escapeHtml(c.field)}</td>
+          <td>${escapeHtml(c.old_value)}</td>
+          <td>${escapeHtml(c.new_value)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>` : ''
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -131,10 +176,11 @@ function buildPrintHtml(log: OpsLogData, siteName: string, dayLabel: string): st
   @page { size: A4 landscape; margin: 10mm 12mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10pt; color: #111; }
-  header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #111; padding-bottom: 6px; margin-bottom: 10px; }
+  header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #111; padding-bottom: 6px; margin-bottom: 4px; }
   header h1 { font-size: 16pt; font-weight: 700; }
   header .meta { font-size: 11pt; text-align: right; }
   header .meta strong { display: block; font-size: 12pt; }
+  .approval { font-size: 9pt; color: #333; margin-bottom: 8px; }
   table { width: 100%; border-collapse: collapse; }
   th, td { border: 1px solid #999; padding: 3px 6px; text-align: left; vertical-align: middle; }
   thead th { background: #e8e8e8; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.08em; }
@@ -147,6 +193,9 @@ function buildPrintHtml(log: OpsLogData, siteName: string, dayLabel: string): st
   .bookings { margin-top: 10px; border: 1px solid #999; padding: 6px 8px; page-break-inside: avoid; }
   .bookings h2 { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
   .bookings p { font-size: 10pt; }
+  .amendments { margin-top: 12px; page-break-inside: avoid; }
+  .amendments h2 { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .amendments table td, .amendments table th { font-size: 8pt; padding: 2px 5px; }
   footer { margin-top: 8px; font-size: 8pt; color: #555; display: flex; justify-content: space-between; }
 </style>
 </head>
@@ -155,6 +204,7 @@ function buildPrintHtml(log: OpsLogData, siteName: string, dayLabel: string): st
   <h1>Daily Ops Log</h1>
   <div class="meta"><strong>${escapeHtml(siteName)}</strong>${escapeHtml(dayLabel)}</div>
 </header>
+${approvalLine ? `<p class="approval">${approvalLine}</p>` : ''}
 <table>
   <thead>
     <tr>
@@ -165,6 +215,7 @@ function buildPrintHtml(log: OpsLogData, siteName: string, dayLabel: string): st
 </table>
 ${bookings('Pool Bookings', log.poolBookings)}
 ${bookings('Gym Bookings', log.gymBookings)}
+${amendmentsHtml}
 <footer>
   <span>LeisureWorld · Manager Portal</span>
   <span>Printed ${new Date().toLocaleString('en-IE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
@@ -172,6 +223,8 @@ ${bookings('Gym Bookings', log.gymBookings)}
 </body>
 </html>`
 }
+
+// ── Date helpers ──────────────────────────────────────────────────────────────
 
 function todayKey() {
   const d = new Date()
@@ -184,7 +237,12 @@ function prevDayKey(dateKey: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// ── Row ───────────────────────────────────────────────────────────────────────
+function formatStamp(iso: string | null) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleString('en-IE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+// ── Row editor ────────────────────────────────────────────────────────────────
 
 function OpsRowEditor({ row, onChange, onRemove }: {
   row: OpsRow
@@ -215,18 +273,47 @@ function OpsRowEditor({ row, onChange, onRemove }: {
   )
 }
 
+// ── Status pill ───────────────────────────────────────────────────────────────
+
+function StatusPill({ status }: { status: LogStatus }) {
+  const cls = status === 'approved'
+    ? 'text-green-400 border-green-600/40 bg-green-500/10'
+    : 'text-amber-400 border-amber-500/40 bg-amber-500/10'
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 border text-[10px] font-mono tracking-widest uppercase whitespace-nowrap ${cls}`}>
+      {status === 'approved' && <Lock className="w-3 h-3" />}
+      {status === 'approved' ? 'Approved' : 'Draft'}
+    </span>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OpsLogPage() {
   const [date, setDate]       = useState(todayKey())
   const [siteId, setSiteId]   = useState<number>(SITES[0].id)
   const [log, setLog]         = useState<OpsLogData>(blankLog())
-  const [meta, setMeta]       = useState<{ by: string | null; at: string | null }>({ by: null, at: null })
+  const [meta, setMeta]       = useState<LogMeta>(EMPTY_META)
+  const [changes, setChanges] = useState<ChangeEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(false)
   const [dirty, setDirty]     = useState(false)
   const [flash, setFlash]     = useState(false)
   const [error, setError]     = useState<string | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+
+  const isApproved = meta.status === 'approved'
+
+  const applyResponse = useCallback((json: Record<string, unknown>) => {
+    setMeta({
+      status: (json.status as LogStatus) ?? 'draft',
+      approvedBy: (json.approvedBy as string) ?? null,
+      approvedAt: (json.approvedAt as string) ?? null,
+      updatedBy: (json.updatedBy as string) ?? null,
+      updatedAt: (json.updatedAt as string) ?? null,
+    })
+    setChanges((json.changes as ChangeEntry[]) ?? [])
+  }, [])
 
   const fetchLog = useCallback(async () => {
     setLoading(true); setError(null)
@@ -237,32 +324,40 @@ export default function OpsLogPage() {
       if (json.log) {
         const stored: OpsLogData = json.log
         setLog({ sections: mergeStoredSections(stored), poolBookings: stored.poolBookings ?? '', gymBookings: stored.gymBookings ?? '' })
-        setMeta({ by: json.updatedBy, at: json.updatedAt })
+        applyResponse(json)
       } else {
         setLog(blankLog())
-        setMeta({ by: null, at: null })
+        setMeta(EMPTY_META)
+        setChanges([])
       }
       setDirty(false)
     } catch (e) { setError(String(e)) }
     finally { setLoading(false) }
-  }, [date, siteId])
+  }, [date, siteId, applyResponse])
 
   useEffect(() => { fetchLog() }, [fetchLog])
 
-  const save = useCallback(async () => {
+  const persist = useCallback(async (action: 'save' | 'approve') => {
     setSaving(true); setError(null)
     try {
       const res = await fetch('/api/ops-log', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, siteId, data: log }),
+        body: JSON.stringify({ date, siteId, data: log, action }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      applyResponse(json)
       setDirty(false); setFlash(true)
       setTimeout(() => setFlash(false), 2000)
     } catch (e) { setError(String(e)) }
     finally { setSaving(false) }
-  }, [date, siteId, log])
+  }, [date, siteId, log, applyResponse])
+
+  const approve = useCallback(() => {
+    if (!window.confirm('Approve and lock this ops log? After approval, any further edits will be recorded in the change history.')) return
+    persist('approve')
+  }, [persist])
 
   const copyPrev = useCallback(async () => {
     const prev = prevDayKey(date)
@@ -284,16 +379,21 @@ export default function OpsLogPage() {
 
   const dayLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-IE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
+  const staffCount = useMemo(
+    () => log.sections.reduce((n, s) => n + s.rows.filter(r => r.name.trim()).length, 0),
+    [log],
+  )
+
   const printLog = useCallback(() => {
     const siteName = SITES.find(s => s.id === siteId)?.name ?? 'LeisureWorld'
     const win = window.open('', '_blank')
     if (!win) { setError('Pop-up blocked — allow pop-ups to print the ops log'); return }
-    win.document.write(buildPrintHtml(log, siteName, dayLabel))
+    win.document.write(buildPrintHtml(log, siteName, dayLabel, meta, changes))
     win.document.close()
     win.focus()
     // Give the new window a moment to render before opening the print dialog
     setTimeout(() => win.print(), 250)
-  }, [log, siteId, dayLabel])
+  }, [log, siteId, dayLabel, meta, changes])
 
   return (
     <div className="space-y-6">
@@ -311,37 +411,70 @@ export default function OpsLogPage() {
           </select>
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-white/20" />
-          <button onClick={copyPrev} title="Copy previous day as starting point"
-            className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-2 font-mono">
-            <Copy className="w-3.5 h-3.5" /> Copy prev
-          </button>
-          <button onClick={printLog} disabled={loading} title="Print or save as PDF (A4)"
-            className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-400 hover:text-white disabled:opacity-40 transition-colors flex items-center gap-2 font-mono">
-            <Printer className="w-3.5 h-3.5" /> Print
-          </button>
           <button onClick={fetchLog} disabled={loading}
             className="border border-white/10 bg-slate-900/80 p-2 text-slate-400 hover:text-white disabled:opacity-40 transition-colors">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button onClick={save} disabled={saving || !dirty}
-            className="border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-mono">
+        </div>
+      </div>
+
+      {/* Status / workflow bar */}
+      <div className="border border-white/[0.08] bg-white/[0.03] px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
+          <StatusPill status={meta.status} />
+          <span className="text-sm font-mono text-slate-300">{dayLabel}</span>
+          <span className="text-[11px] font-mono text-slate-600">{staffCount} staff assigned</span>
+          {isApproved && meta.approvedBy && (
+            <span className="text-[11px] font-mono text-slate-500">
+              Approved by {meta.approvedBy} · {formatStamp(meta.approvedAt)}
+            </span>
+          )}
+          {dirty && <span className="text-[11px] font-mono text-amber-400">Unsaved changes</span>}
+          {!dirty && meta.updatedAt && (
+            <span className="text-[11px] font-mono text-slate-600">
+              Last saved by {meta.updatedBy} · {formatStamp(meta.updatedAt)}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {!isApproved && (
+            <button onClick={copyPrev} title="Copy previous day as starting point"
+              className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-2 font-mono">
+              <Copy className="w-3.5 h-3.5" /> Copy prev
+            </button>
+          )}
+          <button onClick={() => persist('save')} disabled={saving || !dirty}
+            className={`border px-4 py-2 text-sm disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-mono ${
+              isApproved
+                ? 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                : 'border-white/10 bg-slate-900/80 text-slate-300 hover:text-white'
+            }`}>
             <Save className="w-3.5 h-3.5" />
-            {saving ? 'Saving…' : flash ? 'Saved ✓' : 'Save log'}
+            {saving ? 'Saving…' : flash ? 'Saved ✓' : isApproved ? 'Save amendment' : 'Save draft'}
+          </button>
+          {!isApproved && (
+            <button onClick={approve} disabled={saving || loading}
+              title="Lock the log and enable printing"
+              className="border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-30 transition-colors flex items-center gap-2 font-mono">
+              <Lock className="w-3.5 h-3.5" /> Approve &amp; lock
+            </button>
+          )}
+          <button onClick={printLog} disabled={loading || !isApproved || dirty}
+            title={!isApproved ? 'The log must be approved before it can be printed' : dirty ? 'Save your changes before printing' : 'Print or save as PDF (A4)'}
+            className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-mono">
+            <Printer className="w-3.5 h-3.5" /> Print
           </button>
         </div>
       </div>
 
-      {/* Date label + last saved */}
-      <div className="flex items-center justify-between flex-wrap gap-2 -mt-2">
-        <p className="text-sm font-mono text-slate-400">{dayLabel}</p>
-        {meta.at && (
-          <p className="text-[11px] font-mono text-slate-600">
-            Saved by {meta.by ?? 'unknown'} · {new Date(meta.at + 'Z').toLocaleString('en-IE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-            {dirty && <span className="text-amber-400 ml-2">· unsaved changes</span>}
-          </p>
-        )}
-        {!meta.at && dirty && <p className="text-[11px] font-mono text-amber-400">Unsaved changes</p>}
-      </div>
+      {/* Amendment notice */}
+      {isApproved && (
+        <div className="border border-amber-500/20 bg-amber-500/5 px-4 py-2.5 text-[11px] font-mono text-amber-300/90 -mt-3">
+          This log is approved and locked. You can still make changes during the day — every change is recorded
+          in the history below with who changed it, when, and what it was before.
+        </div>
+      )}
 
       {error && (
         <div className="border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm font-mono text-red-400">{error}</div>
@@ -357,8 +490,9 @@ export default function OpsLogPage() {
         <div className="space-y-4">
 
           {/* Column headers */}
-          <div className="grid gap-1 px-px" style={{ gridTemplateColumns: '1.3fr 1fr 0.55fr 0.7fr 0.7fr 0.7fr 1.6fr 1.2fr auto' }}>
-            {['Name', 'Shift', 'Breaks', '15', '30', '15', 'Duties', 'Cover / Extra', ''].map((h, i) => (
+          <div className="grid gap-1 px-px sticky top-0 z-10 bg-slate-950/95 backdrop-blur py-2 -my-2"
+            style={{ gridTemplateColumns: '1.3fr 1fr 0.55fr 0.7fr 0.7fr 0.7fr 1.6fr 1.2fr auto' }}>
+            {['Name', 'Shift', 'Breaks', '1st 15', '30 min', '2nd 15', 'Duties', 'Cover / Extra', ''].map((h, i) => (
               <span key={i} className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-600 px-2">{h}</span>
             ))}
           </div>
@@ -410,6 +544,45 @@ export default function OpsLogPage() {
               </section>
             ))}
           </div>
+
+          {/* Change history */}
+          {changes.length > 0 && (
+            <section className="border border-white/[0.08] bg-white/[0.03]">
+              <button onClick={() => setHistoryOpen(o => !o)}
+                className="w-full flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] text-left">
+                <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-400 flex items-center gap-2">
+                  <History className="w-3.5 h-3.5" /> Change history · {changes.length} amendment{changes.length === 1 ? '' : 's'}
+                </span>
+                {historyOpen ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+              </button>
+              {historyOpen && (
+                <div className="p-3 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left">
+                        {['Time', 'By', 'Section', 'Staff', 'Field', 'Was', 'Now'].map(h => (
+                          <th key={h} className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-600 px-2 py-1.5 font-normal">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {changes.map((c, i) => (
+                        <tr key={i} className="border-t border-white/[0.05]">
+                          <td className="px-2 py-1.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{formatStamp(c.changed_at)}</td>
+                          <td className="px-2 py-1.5 text-slate-300 whitespace-nowrap">{c.changed_by}</td>
+                          <td className="px-2 py-1.5 text-slate-400 whitespace-nowrap">{c.section}</td>
+                          <td className="px-2 py-1.5 text-slate-300 whitespace-nowrap">{c.staff_name}</td>
+                          <td className="px-2 py-1.5 text-slate-400 whitespace-nowrap">{c.field}</td>
+                          <td className="px-2 py-1.5 font-mono text-[11px] text-red-300/80">{c.old_value}</td>
+                          <td className="px-2 py-1.5 font-mono text-[11px] text-emerald-300/80">{c.new_value}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
 
         </div>
       )}

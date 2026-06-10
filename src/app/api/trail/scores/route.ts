@@ -10,14 +10,14 @@ export async function GET(request: NextRequest) {
     const interval = (searchParams.get('interval') || 'day') as 'day' | 'week' | 'month'
     const cacheKey = `scores:${startDate}:${endDate}:${interval}`
 
-    const cached = getCachedJson<{ scores: unknown[] }>(cacheKey, 60)
+    const cached = await getCachedJson<{ scores: unknown[] }>(cacheKey, 60)
     if (cached) {
       return NextResponse.json({ ...cached.payload, cached: true })
     }
 
     const scores = await fetchScores(startDate, endDate, interval)
     const result = { scores }
-    setCachedJson(cacheKey, result)
+    await setCachedJson(cacheKey, result)
 
     return NextResponse.json({ ...result, cached: false })
   } catch (err) {

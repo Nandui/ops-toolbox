@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('date') || today
     const cacheKey = `tasks:${startDate}`
 
-    const cached = getCachedJson<{ instances: unknown[]; fetchedAt: string }>(cacheKey, 5)
+    const cached = await getCachedJson<{ instances: unknown[]; fetchedAt: string }>(cacheKey, 5)
 
     if (cached) {
       return NextResponse.json({ ...cached.payload, cached: true })
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const instances = await fetchAllTaskInstances(startDate, startDate, DAILY_TEMPLATE_IDS)
     const result = { instances, fetchedAt: new Date().toISOString() }
 
-    setCachedJson(cacheKey, result)
+    await setCachedJson(cacheKey, result)
 
     return NextResponse.json({ ...result, cached: false })
   } catch (err) {

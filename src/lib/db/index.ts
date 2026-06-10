@@ -1,133 +1,167 @@
-import Database from 'better-sqlite3'
-import path from 'path'
-import * as fs from 'fs'
+import { neon } from '@neondatabase/serverless'
 import * as bcrypt from 'bcryptjs'
 import { SITES, USER_ROLES } from '../portal'
 
 /**
- * SQLite-backed persistence for the portal.
+ * Neon Postgres persistence for the portal.
  *
- * This file owns schema creation and seed data so the rest of the app can treat
- * the database as a stable service, not a pile of ad-hoc SQL strings.
+ * This module owns schema creation and seed data so the rest of the app can
+ * treat the database as a stable service. Call `getSql()` to obtain the query
+ * function — it lazily initialises the schema once per process.
  */
-// Vercel's project root is read-only; /tmp is writable (ephemeral per instance)
-const DB_PATH = process.env.VERCEL
-  ? '/tmp/app.db'
-  : path.join(process.cwd(), 'data', 'app.db')
+
+export type Sql = ReturnType<typeof neon>
+
 const ROLE_CHECK_LIST = USER_ROLES.map(role => `'${role}'`).join(', ')
 
-let db: Database.Database | null = null
+let sqlClient: Sql | null = null
+let schemaReady: Promise<void> | null = null
 
-export function getDb(): Database.Database {
-  if (!db) {
-    const dir = path.dirname(DB_PATH)
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    db = new Database(DB_PATH)
-    db.pragma('journal_mode = WAL')
-    db.pragma('foreign_keys = ON')
-    initSchema(db)
+function connectionString(): string {
+  const url = process.env.DATABASE_URL ?? process.env.POSTGRES_URL
+  if (!url) {
+    throw new Error(
+      'DATABASE_URL is not set. Install the Neon integration from the Vercel Marketplace ' +
+      '(or create a Neon database and set DATABASE_URL) before running the app.'
+    )
   }
-  return db
+  return url
 }
 
-function initSchema(database: Database.Database) {
-  database.exec(`
+export async function getSql(): Promise<Sql> {
+  if (!sqlClient) sqlClient = neon(connectionString())
+  if (!schemaReady) schemaReady = initSchema(sqlClient)
+  await schemaReady
+  return sqlClient
+}
+
+async function initSchema(sql: Sql) {
+  await sql.query(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN (${ROLE_CHECK_LIST})),
+      role TEXT NOT NULL CHECK (role IN (${ROLE_CHECK_LIST})),
       site_ids TEXT NOT NULL DEFAULT '[]',
       active INTEGER NOT NULL DEFAULT 1,
-      last_login_at TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+      last_login_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`)
 
+  await sql.query(`
     CREATE TABLE IF NOT EXISTS sites (
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active',
       pools TEXT NOT NULL DEFAULT '[]'
-    );
+    )`)
 
+  await sql.query(`
     CREATE TABLE IF NOT EXISTS trail_cache (
       key TEXT PRIMARY KEY,
       data TEXT NOT NULL,
-      fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+      fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`)
 
+  await sql.query(`
     CREATE TABLE IF NOT EXISTS trail_poll_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      polled_at TEXT NOT NULL DEFAULT (datetime('now')),
+      id SERIAL PRIMARY KEY,
+      polled_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       endpoint TEXT NOT NULL,
       status TEXT NOT NULL,
       record_count INTEGER DEFAULT 0,
       error_message TEXT
-    );
+    )`)
 
+  await sql.query(`
     CREATE TABLE IF NOT EXISTS chemistry_thresholds (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       metric TEXT NOT NULL UNIQUE,
       low_warning REAL,
       ok_low REAL,
       ok_high REAL,
       high_warning REAL,
       unit TEXT NOT NULL DEFAULT 'ppm',
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`)
 
+  await sql.query(`
     CREATE TABLE IF NOT EXISTS system_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`)
 
+  await sql.query(`
     CREATE TABLE IF NOT EXISTS ops_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       site_id INTEGER NOT NULL,
       log_date TEXT NOT NULL,
-      data TEXT NOT NULL,
+      data JSONB NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'approved')),
+      approved_by TEXT,
+      approved_at TIMESTAMPTZ,
       updated_by TEXT,
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       UNIQUE(site_id, log_date)
-    );
-  `)
-  seedInitialData(database)
+    )`)
+
+  await sql.query(`
+    CREATE TABLE IF NOT EXISTS ops_log_changes (
+      id SERIAL PRIMARY KEY,
+      ops_log_id INTEGER NOT NULL REFERENCES ops_logs(id) ON DELETE CASCADE,
+      changed_by TEXT NOT NULL,
+      changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      section TEXT NOT NULL,
+      staff_name TEXT NOT NULL,
+      field TEXT NOT NULL,
+      old_value TEXT NOT NULL,
+      new_value TEXT NOT NULL
+    )`)
+
+  await seedInitialData(sql)
 }
 
-function seedInitialData(database: Database.Database) {
-  const siteCount = (database.prepare('SELECT COUNT(*) as c FROM sites').get() as { c: number }).c
-  if (siteCount === 0) {
-    const ins = database.prepare('INSERT OR IGNORE INTO sites (id, name, status, pools) VALUES (?, ?, ?, ?)')
-    for (const site of SITES) {
-      ins.run(site.id, site.name, 'active', JSON.stringify(site.pools))
-    }
+async function seedInitialData(sql: Sql) {
+  for (const site of SITES) {
+    await sql`
+      INSERT INTO sites (id, name, status, pools)
+      VALUES (${site.id}, ${site.name}, 'active', ${JSON.stringify(site.pools)})
+      ON CONFLICT (id) DO NOTHING`
   }
 
-  const threshCount = (database.prepare('SELECT COUNT(*) as c FROM chemistry_thresholds').get() as { c: number }).c
-  if (threshCount === 0) {
-    const ins = database.prepare('INSERT INTO chemistry_thresholds (metric, low_warning, ok_low, ok_high, high_warning, unit) VALUES (?, ?, ?, ?, ?, ?)')
-    ins.run('free_chlorine',     0.5,  0.5,  3.0,  3.0,  'ppm')
-    ins.run('total_chlorine',    null, 1.0,  4.0,  4.0,  'ppm')
-    ins.run('combined_chlorine', null, 0.0,  1.0,  1.0,  'ppm')
-    ins.run('ph',                7.2,  7.2,  7.8,  7.8,  'pH')
-    ins.run('water_temp',        null, 26.0, 32.0, 32.0, '°C')
+  const thresholds: [string, number | null, number, number, number, string][] = [
+    ['free_chlorine',     0.5,  0.5,  3.0,  3.0,  'ppm'],
+    ['total_chlorine',    null, 1.0,  4.0,  4.0,  'ppm'],
+    ['combined_chlorine', null, 0.0,  1.0,  1.0,  'ppm'],
+    ['ph',                7.2,  7.2,  7.8,  7.8,  'pH'],
+    ['water_temp',        null, 26.0, 32.0, 32.0, '°C'],
+  ]
+  for (const [metric, lowWarn, okLow, okHigh, highWarn, unit] of thresholds) {
+    await sql`
+      INSERT INTO chemistry_thresholds (metric, low_warning, ok_low, ok_high, high_warning, unit)
+      VALUES (${metric}, ${lowWarn}, ${okLow}, ${okHigh}, ${highWarn}, ${unit})
+      ON CONFLICT (metric) DO NOTHING`
   }
 
   const adminEmail = 'admin@leisureworld.ie'
-  const existing = database.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail)
-  if (!existing) {
+  const existing = await sql`SELECT id FROM users WHERE email = ${adminEmail}` as { id: number }[]
+  if (existing.length === 0) {
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
     const hash = bcrypt.hashSync(adminPassword, 10)
-    database.prepare(`
+    await sql`
       INSERT INTO users (email, name, password_hash, role, site_ids)
-      VALUES (?, ?, ?, 'admin', '[]')
-    `).run(adminEmail, 'Fernando Serina', hash)
+      VALUES (${adminEmail}, 'Fernando Serina', ${hash}, 'admin', '[]')
+      ON CONFLICT (email) DO NOTHING`
   }
 
-  const setSetting = database.prepare('INSERT OR IGNORE INTO system_settings (key, value) VALUES (?, ?)')
-  setSetting.run('poll_interval_minutes', '5')
-  setSetting.run('app_name', 'LeisureWorld Portal')
-  setSetting.run('timezone', 'Europe/Dublin')
+  const settings: [string, string][] = [
+    ['poll_interval_minutes', '5'],
+    ['app_name', 'LeisureWorld Portal'],
+    ['timezone', 'Europe/Dublin'],
+  ]
+  for (const [key, value] of settings) {
+    await sql`INSERT INTO system_settings (key, value) VALUES (${key}, ${value}) ON CONFLICT (key) DO NOTHING`
+  }
 }

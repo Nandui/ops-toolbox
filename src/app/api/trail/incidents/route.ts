@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate') || today
     const cacheKey = `incidents:${startDate}:${endDate}`
 
-    const cached = getCachedJson<{ instances: unknown[]; recordLogs: Record<string, unknown>; fetchedAt: string }>(cacheKey, 10)
+    const cached = await getCachedJson<{ instances: unknown[]; recordLogs: Record<string, unknown>; fetchedAt: string }>(cacheKey, 10)
     if (cached) {
       return NextResponse.json({ ...cached.payload, cached: true })
     }
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     const result = { instances, recordLogs, fetchedAt: new Date().toISOString() }
-    setCachedJson(cacheKey, result)
+    await setCachedJson(cacheKey, result)
 
     return NextResponse.json({ ...result, cached: false })
   } catch (err) {

@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import * as bcrypt from 'bcryptjs'
 import { type UserRole } from './portal'
-import { getDb } from './db'
+import { getSql } from './db'
 
 /**
  * Shared auth/session primitives for the portal.
@@ -104,10 +104,11 @@ export async function requireAuth(allowedRoles?: UserRole[]): Promise<SessionUse
 }
 
 export async function loginUser(email: string, password: string): Promise<SessionUser | null> {
-  const db = getDb()
-  const row = db.prepare('SELECT * FROM users WHERE email = ? AND active = 1').get(email.toLowerCase()) as {
+  const sql = await getSql()
+  const rows = await sql`SELECT * FROM users WHERE email = ${email.toLowerCase()} AND active = 1` as {
     id: number; email: string; name: string; password_hash: string; role: UserRole; site_ids: string
-  } | undefined
+  }[]
+  const row = rows[0]
 
   if (!row) {
     console.error('[login] user not found:', email.toLowerCase())
@@ -115,11 +116,11 @@ export async function loginUser(email: string, password: string): Promise<Sessio
   }
   const valid = bcrypt.compareSync(password, row.password_hash)
   if (!valid) {
-    console.error('[login] password mismatch for:', email.toLowerCase(), '| hash prefix:', row.password_hash.slice(0, 7))
+    console.error('[login] password mismatch for:', email.toLowerCase())
     return null
   }
 
-  db.prepare('UPDATE users SET last_login_at = datetime(\'now\') WHERE id = ?').run(row.id)
+  await sql`UPDATE users SET last_login_at = now() WHERE id = ${row.id}`
 
   return {
     id: row.id,
