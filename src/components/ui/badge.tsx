@@ -19,6 +19,17 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // Status variants — solid tint, legible size; for operational state
+        // (approved/draft, ok/watch, live/stale), not decoration
+        success:
+          "h-6 rounded-full bg-emerald-500/15 px-2.5 text-[13px] font-medium text-emerald-300",
+        warning:
+          "h-6 rounded-full bg-amber-500/15 px-2.5 text-[13px] font-medium text-amber-300",
+        danger:
+          "h-6 rounded-full bg-red-500/15 px-2.5 text-[13px] font-medium text-red-300",
+        info: "h-6 rounded-full bg-blue-500/15 px-2.5 text-[13px] font-medium text-blue-300",
+        neutral:
+          "h-6 rounded-full bg-white/[0.08] px-2.5 text-[13px] font-medium text-white/60",
       },
     },
     defaultVariants: {

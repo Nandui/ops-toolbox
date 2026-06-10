@@ -83,38 +83,45 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/*
+ * Dark theme — the app's only theme.
+ *
+ * Neutral near-black canvas with a single emerald accent. Surfaces are
+ * low-opacity white fills so they read consistently over the canvas.
+ * Status colours (red/amber/blue) are reserved for state, never decoration.
+ */
 .dark {
-  --background: oklch(0.15 0 0);
+  --background: oklch(0.14 0.012 255);
   --foreground: oklch(0.975 0 0);
-  --card: oklch(0.22 0 0);
+  --card: oklch(0.18 0.012 255);
   --card-foreground: oklch(0.975 0 0);
-  --popover: oklch(0.22 0 0);
+  --popover: oklch(0.21 0.012 255);
   --popover-foreground: oklch(0.975 0 0);
-  --primary: oklch(0.94 0 0);
-  --primary-foreground: oklch(0.18 0 0);
-  --secondary: oklch(0.28 0 0);
+  --primary: oklch(0.66 0.15 160);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(1 0 0 / 8%);
   --secondary-foreground: oklch(0.975 0 0);
-  --muted: oklch(0.28 0 0);
-  --muted-foreground: oklch(0.79 0 0);
-  --accent: oklch(0.3 0 0);
+  --muted: oklch(1 0 0 / 7%);
+  --muted-foreground: oklch(1 0 0 / 60%);
+  --accent: oklch(1 0 0 / 8%);
   --accent-foreground: oklch(0.975 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 18%);
-  --input: oklch(1 0 0 / 22%);
-  --ring: oklch(0.61 0.14 155);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 20%);
+  --ring: oklch(0.72 0.13 162);
   --chart-1: oklch(0.87 0.12 155);
   --chart-2: oklch(0.72 0.13 250);
   --chart-3: oklch(0.78 0.13 80);
   --chart-4: oklch(0.72 0.11 300);
   --chart-5: oklch(0.7 0.1 30);
-  --sidebar: oklch(0.18 0 0);
+  --sidebar: oklch(0.16 0.012 255);
   --sidebar-foreground: oklch(0.975 0 0);
-  --sidebar-primary: oklch(0.64 0.16 155);
-  --sidebar-primary-foreground: oklch(0.18 0 0);
-  --sidebar-accent: oklch(0.26 0 0);
+  --sidebar-primary: oklch(0.66 0.15 160);
+  --sidebar-primary-foreground: oklch(0.14 0 0);
+  --sidebar-accent: oklch(1 0 0 / 8%);
   --sidebar-accent-foreground: oklch(0.975 0 0);
-  --sidebar-border: oklch(1 0 0 / 18%);
-  --sidebar-ring: oklch(0.61 0.14 155);
+  --sidebar-border: oklch(1 0 0 / 7%);
+  --sidebar-ring: oklch(0.72 0.13 162);
 }
 
 @layer base {
@@ -123,16 +130,95 @@
   }
   html {
     @apply font-sans antialiased;
-    background:
-      radial-gradient(circle at top, rgba(16, 185, 129, 0.14), transparent 26%),
-      radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.12), transparent 24%),
-      radial-gradient(circle at 50% 120%, rgba(168, 85, 247, 0.06), transparent 28%),
-      linear-gradient(to bottom, rgb(11 15 21), rgb(17 23 31) 45%, rgb(10 13 18));
+    /* Neutral canvas — depth comes from surfaces, not background colour */
+    background: linear-gradient(to bottom, rgb(10 13 20), rgb(8 11 17) 60%);
     background-attachment: fixed;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
     min-height: 100vh;
     background: transparent;
   }
+}
+
+/* ── Typography scale ─────────────────────────────────────────────────────
+ * Apple-style roles. Mono is reserved for data values (times, readings,
+ * codes) — never labels or headings.
+ */
+@utility text-display {
+  font-size: 2rem;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+@utility text-title {
+  font-size: 1.25rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+@utility text-headline {
+  font-size: 1rem;
+  line-height: 1.35;
+  font-weight: 600;
+}
+@utility text-body {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  font-weight: 400;
+}
+@utility text-callout {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  font-weight: 400;
+}
+@utility text-subhead {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  font-weight: 500;
+}
+@utility text-caption {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  font-weight: 400;
+}
+
+/* ── Surface levels ───────────────────────────────────────────────────────
+ * Level 1 (surface-card): content containers. Solid fill, hairline edge,
+ *   faint top highlight. No blur — content stays legible.
+ * Level 2 (surface-elevated): floating elements — action bars, popovers.
+ * Glass (surface-glass): persistent chrome only (sidebar, top bar).
+ */
+@utility surface-card {
+  background-color: rgb(255 255 255 / 0.045);
+  border-radius: 1rem;
+  box-shadow:
+    0 0 0 0.5px rgb(255 255 255 / 0.08),
+    0 1px 2px rgb(0 0 0 / 0.25),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+@utility surface-elevated {
+  background-color: rgb(255 255 255 / 0.08);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 0 0 0.5px rgb(255 255 255 / 0.12),
+    0 8px 32px rgb(0 0 0 / 0.4),
+    0 2px 8px rgb(0 0 0 / 0.3),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+@utility surface-glass {
+  background-color: rgb(10 13 20 / 0.65);
+  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+}
+
+/* Hairline separators (0.5px) for dividing chrome from content */
+@utility hairline-t {
+  border-top: 0.5px solid rgb(255 255 255 / 0.07);
+}
+@utility hairline-b {
+  border-bottom: 0.5px solid rgb(255 255 255 / 0.07);
+}
+@utility hairline-r {
+  border-right: 0.5px solid rgb(255 255 255 / 0.07);
 }
