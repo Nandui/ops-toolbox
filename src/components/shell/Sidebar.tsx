@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FlaskConical, CheckSquare, BarChart3,
-  AlertTriangle, ClipboardList, Settings, Users, Waves
+  AlertTriangle, ClipboardList, Settings, Users, Waves, CalendarDays
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { UserRole } from '@/lib/portal'
@@ -20,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard',            label: 'Overview',       icon: LayoutDashboard },
   { href: '/dashboard/chemistry',  label: 'Pool Chemistry', icon: FlaskConical    },
   { href: '/dashboard/tasks',      label: 'Task Board',     icon: CheckSquare     },
+  { href: '/dashboard/ops-log',    label: 'Ops Log',        icon: CalendarDays    },
   { href: '/dashboard/scores',     label: 'Site Scores',    icon: BarChart3       },
   { href: '/dashboard/incidents',  label: 'Incidents',      icon: AlertTriangle   },
   { href: '/dashboard/handovers',  label: 'Handovers',      icon: ClipboardList   },
