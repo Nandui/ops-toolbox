@@ -61,39 +61,44 @@ export default function LoginPage() {
 
   const displayError = error || urlError
 
+  const inputCls = 'w-full rounded-xl bg-white/[0.06] px-4 py-3 text-[15px] text-white placeholder:text-white/25 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40'
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[linear-gradient(180deg,rgba(11,15,21,1),rgba(16,22,31,1))]">
-      <div className="w-full max-w-sm">
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-sm space-y-3">
 
         {/* Brand */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="flex h-9 w-9 items-center justify-center border border-emerald-400/25 bg-emerald-500/10">
-            <Waves className="w-4 h-4 text-emerald-300" />
+        <div className="flex items-center gap-3 px-1 pb-2">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
+            <Waves className="size-4.5 text-emerald-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-white leading-tight">LeisureWorld</p>
-            <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500">Manager Portal</p>
+            <p className="text-subhead leading-tight text-white">LeisureWorld</p>
+            <p className="text-caption text-white/40">Manager Portal</p>
           </div>
         </div>
 
         {/* Card */}
-        <div className="border border-white/[0.08] bg-white/[0.03] p-6">
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Access</div>
-          <h1 className="text-2xl font-light text-white mb-6">Sign in</h1>
+        <div className="surface-card p-6 space-y-5">
+          <h1 className="text-title">Sign in</h1>
 
           {displayError && (
-            <div className="mb-4 border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-sm font-mono text-red-400">
+            <div
+              role="alert"
+              aria-live="polite"
+              className="rounded-xl bg-red-500/10 px-4 py-3 text-[13px] text-red-300 ring-1 ring-inset ring-red-500/20"
+            >
               {displayError}
             </div>
           )}
 
           <form action="/api/auth/login" method="POST" onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1.5">
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-caption text-white/50">
                 Email address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 pointer-events-none" />
+                <Mail className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-white/25" />
                 <input
                   id="email"
                   name="email"
@@ -102,18 +107,18 @@ export default function LoginPage() {
                   onChange={e => setEmail(e.target.value)}
                   required
                   autoComplete="email"
-                  className="w-full border border-white/10 bg-slate-950/60 pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-600 font-mono focus:outline-none focus:border-white/20"
+                  className={`${inputCls} pl-10`}
                   placeholder="you@leisureworld.ie"
                 />
               </div>
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1.5">
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-caption text-white/50">
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 pointer-events-none" />
+                <Lock className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-white/25" />
                 <input
                   id="password"
                   name="password"
@@ -122,15 +127,17 @@ export default function LoginPage() {
                   onChange={e => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
-                  className="w-full border border-white/10 bg-slate-950/60 pl-10 pr-10 py-2.5 text-sm text-white placeholder-slate-600 font-mono focus:outline-none focus:border-white/20"
+                  className={`${inputCls} pl-10 pr-11`}
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-400"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-white/30 hover:text-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
             </div>
@@ -138,28 +145,23 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-mono text-emerald-300 transition-colors hover:bg-emerald-500/15 hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-[15px] font-medium text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.15),0_1px_2px_rgb(0_0_0/0.3)] hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 transition-all focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
             >
-              {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Signing in…</> : 'Sign in'}
+              {loading ? <><Loader2 className="size-4 animate-spin" />Signing in…</> : 'Sign in'}
             </button>
           </form>
         </div>
 
         {/* Bypass */}
-        <div className="mt-2">
-          <button
-            onClick={handleBypass}
-            disabled={bypassing}
-            className="flex w-full items-center justify-center gap-2 border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm font-mono text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-slate-300 disabled:opacity-50"
-          >
-            {bypassing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            Login
-          </button>
-        </div>
+        <button
+          onClick={handleBypass}
+          disabled={bypassing}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.04] px-4 py-3 text-[13px] text-white/40 hover:bg-white/[0.07] hover:text-white/60 disabled:opacity-50 transition-colors ring-[0.5px] ring-inset ring-white/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        >
+          {bypassing ? <Loader2 className="size-4 animate-spin" /> : <Zap className="size-4" />}
+          Dev login
+        </button>
 
-        <p className="mt-4 text-center text-[10px] font-mono text-slate-600">
-          LeisureWorld Cork · Manager Portal v1.0
-        </p>
       </div>
     </div>
   )

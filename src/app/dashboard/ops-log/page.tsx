@@ -69,7 +69,7 @@ const SECTION_DEFS = [
   { id: 'maintenance',      title: 'Maintenance' },
 ]
 
-const inputCls = 'w-full border border-white/10 bg-slate-900/80 px-2 py-1.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/20 font-mono'
+const inputCls = 'w-full rounded-sm border border-white/10 bg-slate-900/80 px-2 py-1.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset font-mono'
 
 function emptyRow(): OpsRow {
   return { name: '', shift: '', breakMins: '', break1: '', break2: '', break3: '', duties: '', extra: '' }
@@ -291,17 +291,21 @@ function OpsRowEditor({ row, onChange, onRemove }: {
   }
   return (
     <div className="grid gap-1 items-center" style={{ gridTemplateColumns: '1.3fr 1fr 0.55fr 0.7fr 0.7fr 0.7fr 1.6fr 1.2fr auto' }}>
-      <input className={inputCls} placeholder="Name"           value={row.name}      onChange={set('name')} />
-      <input className={inputCls} placeholder="06:30-13:30"    value={row.shift}     onChange={setShift} />
-      <input className={`${inputCls} text-slate-400 cursor-default`} placeholder="—" value={row.breakMins}
+      <input aria-label="Staff name"                      className={inputCls} placeholder="Name"           value={row.name}     onChange={set('name')} />
+      <input aria-label="Shift time (e.g. 06:30–13:30)"  className={inputCls} placeholder="06:30-13:30"    value={row.shift}    onChange={setShift} />
+      <input aria-label="Break entitlement (auto-calculated from shift)" className={`${inputCls} text-white/40 cursor-default`} placeholder="—" value={row.breakMins}
         readOnly tabIndex={-1} title={entitlement.detail || 'Auto-calculated from shift'} />
-      <input className={inputCls} placeholder="x"              value={row.break1}    onChange={set('break1')} />
-      <input className={inputCls} placeholder="x"              value={row.break2}    onChange={set('break2')} />
-      <input className={inputCls} placeholder="x"              value={row.break3}    onChange={set('break3')} />
-      <input className={inputCls} placeholder="Duties / notes" value={row.duties}    onChange={set('duties')} />
-      <input className={inputCls} placeholder="Cover / extra"  value={row.extra}     onChange={set('extra')} />
-      <button onClick={onRemove} className="p-1.5 text-slate-600 hover:text-red-400 transition-colors">
-        <Trash2 className="w-3.5 h-3.5" />
+      <input aria-label="First 15-minute break time"      className={inputCls} placeholder="x"              value={row.break1}   onChange={set('break1')} />
+      <input aria-label="30-minute break time"            className={inputCls} placeholder="x"              value={row.break2}   onChange={set('break2')} />
+      <input aria-label="Second 15-minute break time"     className={inputCls} placeholder="x"              value={row.break3}   onChange={set('break3')} />
+      <input aria-label="Duties and notes"                className={inputCls} placeholder="Duties / notes" value={row.duties}   onChange={set('duties')} />
+      <input aria-label="Cover or extra duties"           className={inputCls} placeholder="Cover / extra"  value={row.extra}    onChange={set('extra')} />
+      <button
+        onClick={onRemove}
+        aria-label="Remove row"
+        className="flex size-8 shrink-0 items-center justify-center rounded text-white/30 hover:bg-red-500/10 hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+      >
+        <Trash2 className="size-3.5" />
       </button>
     </div>
   )
@@ -454,38 +458,50 @@ export default function OpsLogPage() {
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Operations console</div>
-          <h1 className="text-3xl font-light text-white">Daily ops log</h1>
-        </div>
-        <div className="flex items-center gap-2 pt-1 flex-wrap">
-          <select value={siteId} onChange={e => setSiteId(Number(e.target.value))}
-            className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-white/20">
+        <h1 className="text-title">Daily Ops Log</h1>
+        <div className="flex items-center gap-2 flex-wrap">
+          <label htmlFor="ops-site-select" className="sr-only">Site</label>
+          <select
+            id="ops-site-select"
+            value={siteId}
+            onChange={e => setSiteId(Number(e.target.value))}
+            className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
             {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)}
-            className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-white/20" />
-          <button onClick={fetchLog} disabled={loading}
-            className="border border-white/10 bg-slate-900/80 p-2 text-slate-400 hover:text-white disabled:opacity-40 transition-colors">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <label htmlFor="ops-date-input" className="sr-only">Date</label>
+          <input
+            id="ops-date-input"
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          />
+          <button
+            onClick={fetchLog}
+            disabled={loading}
+            aria-label="Refresh log"
+            className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 text-white/50 hover:text-white disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
+            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
       {/* Status / workflow bar */}
-      <div className="border border-white/[0.08] bg-white/[0.03] px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+      <div className="rounded-xl bg-white/[0.035] px-4 py-3 ring-[0.5px] ring-inset ring-white/[0.07] flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
           <StatusPill status={meta.status} />
-          <span className="text-sm font-mono text-slate-300">{dayLabel}</span>
-          <span className="text-[11px] font-mono text-slate-600">{staffCount} staff assigned</span>
+          <span className="text-sm font-mono text-white/70">{dayLabel}</span>
+          <span className="text-xs font-mono text-white/35">{staffCount} staff assigned</span>
           {isApproved && meta.approvedBy && (
-            <span className="text-[11px] font-mono text-slate-500">
+            <span className="text-xs font-mono text-white/40">
               Approved by {meta.approvedBy} · {formatStamp(meta.approvedAt)}
             </span>
           )}
-          {dirty && <span className="text-[11px] font-mono text-amber-400">Unsaved changes</span>}
+          {dirty && <span className="text-xs font-mono text-amber-400">Unsaved changes</span>}
           {!dirty && meta.updatedAt && (
-            <span className="text-[11px] font-mono text-slate-600">
+            <span className="text-xs font-mono text-white/30">
               Last saved by {meta.updatedBy} · {formatStamp(meta.updatedAt)}
             </span>
           )}
@@ -493,61 +509,82 @@ export default function OpsLogPage() {
 
         <div className="flex items-center gap-2 flex-wrap">
           {!isApproved && (
-            <button onClick={loadPlan} disabled={loadingPlan}
+            <button
+              onClick={loadPlan}
+              disabled={loadingPlan}
               title="Merge the department supervisor's plan for this day into the log"
-              className="border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm text-blue-300 hover:bg-blue-500/20 disabled:opacity-40 transition-colors flex items-center gap-2 font-mono">
-              <Download className="w-3.5 h-3.5" />
+              className="flex items-center gap-2 rounded-xl bg-blue-500/10 px-3 py-2 text-sm text-blue-300 hover:bg-blue-500/20 disabled:opacity-40 transition-colors font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              <Download className="size-3.5" />
               {loadingPlan ? 'Loading…' : 'Load plan'}
             </button>
           )}
           {!isApproved && (
-            <button onClick={copyPrev} title="Copy previous day as starting point"
-              className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-2 font-mono">
-              <Copy className="w-3.5 h-3.5" /> Copy prev
+            <button
+              onClick={copyPrev}
+              title="Copy previous day as starting point"
+              className="flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2 text-sm text-white/50 hover:bg-white/[0.08] hover:text-white transition-colors font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              <Copy className="size-3.5" /> Copy prev
             </button>
           )}
-          <button onClick={() => persist('save')} disabled={saving || !dirty}
-            className={`border px-4 py-2 text-sm disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-mono ${
+          <button
+            onClick={() => persist('save')}
+            disabled={saving || !dirty}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               isApproved
-                ? 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
-                : 'border-white/10 bg-slate-900/80 text-slate-300 hover:text-white'
-            }`}>
-            <Save className="w-3.5 h-3.5" />
+                ? 'bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                : 'bg-white/[0.05] text-white/60 hover:bg-white/[0.08] hover:text-white'
+            }`}
+          >
+            <Save className="size-3.5" />
             {saving ? 'Saving…' : flash ? 'Saved ✓' : isApproved ? 'Save amendment' : 'Save draft'}
           </button>
           {!isApproved && (
-            <button onClick={approve} disabled={saving || loading}
+            <button
+              onClick={approve}
+              disabled={saving || loading}
               title="Lock the log and enable printing"
-              className="border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-30 transition-colors flex items-center gap-2 font-mono">
-              <Lock className="w-3.5 h-3.5" /> Approve &amp; lock
+              className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-30 transition-colors font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              <Lock className="size-3.5" /> Approve &amp; lock
             </button>
           )}
-          <button onClick={printLog} disabled={loading || !isApproved || dirty}
+          <button
+            onClick={printLog}
+            disabled={loading || !isApproved || dirty}
             title={!isApproved ? 'The log must be approved before it can be printed' : dirty ? 'Save your changes before printing' : 'Print or save as PDF (A4)'}
-            className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-mono">
-            <Printer className="w-3.5 h-3.5" /> Print
+            className="flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2 text-sm text-white/50 hover:bg-white/[0.08] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
+            <Printer className="size-3.5" /> Print
           </button>
         </div>
       </div>
 
       {/* Plan load banner */}
       {planBanner && (
-        <div className="border border-blue-500/20 bg-blue-500/5 px-4 py-2.5 text-[11px] font-mono text-blue-300/90 -mt-3 flex items-center justify-between">
+        <div role="status" className="flex items-center justify-between gap-3 rounded-xl bg-blue-500/10 px-4 py-3 text-[13px] text-blue-300/90 ring-1 ring-inset ring-blue-500/20">
           <span>{planBanner}</span>
-          <button onClick={() => setPlanBanner(null)} className="text-blue-400/50 hover:text-blue-300 ml-4">✕</button>
+          <button
+            onClick={() => setPlanBanner(null)}
+            aria-label="Dismiss"
+            className="flex size-7 shrink-0 items-center justify-center rounded-lg text-blue-400/50 hover:bg-blue-500/15 hover:text-blue-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
+            ✕
+          </button>
         </div>
       )}
 
       {/* Amendment notice */}
       {isApproved && (
-        <div className="border border-amber-500/20 bg-amber-500/5 px-4 py-2.5 text-[11px] font-mono text-amber-300/90 -mt-3">
+        <div role="status" className="rounded-xl bg-amber-500/10 px-4 py-3 text-[13px] text-amber-300/90 ring-1 ring-inset ring-amber-500/20">
           This log is approved and locked. You can still make changes during the day — every change is recorded
           in the history below with who changed it, when, and what it was before.
         </div>
       )}
 
       {error && (
-        <div className="border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm font-mono text-red-400">{error}</div>
+        <div role="alert" aria-live="polite" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">{error}</div>
       )}
 
       {loading ? (
@@ -559,35 +596,44 @@ export default function OpsLogPage() {
       ) : (
         <div className="space-y-4">
 
-          {/* Column headers */}
-          <div className="grid gap-1 px-px sticky top-0 z-10 bg-slate-950/95 backdrop-blur py-2 -my-2"
-            style={{ gridTemplateColumns: '1.3fr 1fr 0.55fr 0.7fr 0.7fr 0.7fr 1.6fr 1.2fr auto' }}>
+          {/* Column headers — visible on sm+ where the grid fits without scrolling */}
+          <div
+            aria-hidden="true"
+            className="hidden sm:grid gap-1 px-px sticky top-0 z-10 bg-[oklch(0.14_0.012_255)]/95 backdrop-blur-sm py-2 -my-2"
+            style={{ gridTemplateColumns: '1.3fr 1fr 0.55fr 0.7fr 0.7fr 0.7fr 1.6fr 1.2fr auto' }}
+          >
             {['Name', 'Shift', 'Breaks', '1st 15', '30 min', '2nd 15', 'Duties', 'Cover / Extra', ''].map((h, i) => (
-              <span key={i} className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-600 px-2">{h}</span>
+              <span key={i} className="text-[11px] font-mono uppercase tracking-[0.14em] text-white/30 px-2">{h}</span>
             ))}
           </div>
 
           {/* Sections */}
           {log.sections.map(section => (
-            <section key={section.id} className="border border-white/[0.08] bg-white/[0.03]">
+            <section key={section.id} className="rounded-xl bg-white/[0.035] ring-[0.5px] ring-inset ring-white/[0.07]">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]">
-                <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-400">{section.title}</span>
-                <button onClick={() => updateSection(section.id, [...section.rows, emptyRow()])}
-                  className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-slate-600 hover:text-slate-300 transition-colors">
-                  <Plus className="w-3 h-3" /> Add row
+                <span className="text-xs font-semibold uppercase tracking-wider text-white/50">{section.title}</span>
+                <button
+                  onClick={() => updateSection(section.id, [...section.rows, emptyRow()])}
+                  aria-label={`Add staff row to ${section.title}`}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-white/40 hover:bg-white/[0.06] hover:text-white/70 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                >
+                  <Plus className="size-3" /> Add row
                 </button>
               </div>
-              <div className="p-3 space-y-1.5">
-                {section.rows.length === 0
-                  ? <p className="text-[11px] font-mono text-slate-600 italic px-2 py-1">No staff assigned</p>
-                  : section.rows.map((row, i) => (
-                    <OpsRowEditor
-                      key={i}
-                      row={row}
-                      onChange={updated => updateSection(section.id, section.rows.map((r, j) => j === i ? updated : r))}
-                      onRemove={() => updateSection(section.id, section.rows.filter((_, j) => j !== i))}
-                    />
-                  ))}
+              {/* Horizontal scroll on narrow screens; columns align because min-w forces full width */}
+              <div className="overflow-x-auto">
+                <div className="min-w-[700px] p-3 space-y-1.5">
+                  {section.rows.length === 0
+                    ? <p className="text-xs text-white/30 italic px-2 py-1">No staff assigned</p>
+                    : section.rows.map((row, i) => (
+                      <OpsRowEditor
+                        key={i}
+                        row={row}
+                        onChange={updated => updateSection(section.id, section.rows.map((r, j) => j === i ? updated : r))}
+                        onRemove={() => updateSection(section.id, section.rows.filter((_, j) => j !== i))}
+                      />
+                    ))}
+                </div>
               </div>
             </section>
           ))}
@@ -598,17 +644,18 @@ export default function OpsLogPage() {
               { key: 'poolBookings', label: 'Pool bookings' },
               { key: 'gymBookings',  label: 'Gym bookings' },
             ] as const).map(({ key, label }) => (
-              <section key={key} className="border border-white/[0.08] bg-white/[0.03]">
+              <section key={key} className="rounded-xl bg-white/[0.035] ring-[0.5px] ring-inset ring-white/[0.07]">
                 <div className="px-4 py-2.5 border-b border-white/[0.06]">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-400">{label}</span>
+                  <label htmlFor={`booking-${key}`} className="text-xs font-semibold uppercase tracking-wider text-white/50">{label}</label>
                 </div>
                 <div className="p-3">
                   <textarea
+                    id={`booking-${key}`}
                     value={log[key]}
                     onChange={e => { setLog(l => ({ ...l, [key]: e.target.value })); setDirty(true) }}
                     rows={3}
                     placeholder={key === 'poolBookings' ? 'School 11:00–11:45, party bookings…' : 'Inductions, classes…'}
-                    className="w-full border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/20 font-mono resize-y"
+                    className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 font-mono resize-y"
                   />
                 </div>
               </section>
@@ -617,34 +664,37 @@ export default function OpsLogPage() {
 
           {/* Change history */}
           {changes.length > 0 && (
-            <section className="border border-white/[0.08] bg-white/[0.03]">
-              <button onClick={() => setHistoryOpen(o => !o)}
-                className="w-full flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] text-left">
-                <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-400 flex items-center gap-2">
-                  <History className="w-3.5 h-3.5" /> Change history · {changes.length} amendment{changes.length === 1 ? '' : 's'}
+            <section className="rounded-xl bg-white/[0.035] ring-[0.5px] ring-inset ring-white/[0.07]">
+              <button
+                onClick={() => setHistoryOpen(o => !o)}
+                aria-expanded={historyOpen}
+                className="w-full flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] text-left rounded-t-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              >
+                <span className="text-xs font-semibold uppercase tracking-wider text-white/50 flex items-center gap-2">
+                  <History className="size-3.5" /> Change history · {changes.length} amendment{changes.length === 1 ? '' : 's'}
                 </span>
-                {historyOpen ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                {historyOpen ? <ChevronUp className="size-4 text-white/40" /> : <ChevronDown className="size-4 text-white/40" />}
               </button>
               {historyOpen && (
-                <div className="p-3 overflow-x-auto">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto p-3">
+                  <table className="w-full min-w-[600px] text-sm">
                     <thead>
                       <tr className="text-left">
                         {['Time', 'By', 'Section', 'Staff', 'Field', 'Was', 'Now'].map(h => (
-                          <th key={h} className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-600 px-2 py-1.5 font-normal">{h}</th>
+                          <th key={h} className="text-[11px] font-semibold uppercase tracking-wider text-white/30 px-2 py-1.5">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {changes.map((c, i) => (
                         <tr key={i} className="border-t border-white/[0.05]">
-                          <td className="px-2 py-1.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{formatStamp(c.changed_at)}</td>
-                          <td className="px-2 py-1.5 text-slate-300 whitespace-nowrap">{c.changed_by}</td>
-                          <td className="px-2 py-1.5 text-slate-400 whitespace-nowrap">{c.section}</td>
-                          <td className="px-2 py-1.5 text-slate-300 whitespace-nowrap">{c.staff_name}</td>
-                          <td className="px-2 py-1.5 text-slate-400 whitespace-nowrap">{c.field}</td>
-                          <td className="px-2 py-1.5 font-mono text-[11px] text-red-300/80">{c.old_value}</td>
-                          <td className="px-2 py-1.5 font-mono text-[11px] text-emerald-300/80">{c.new_value}</td>
+                          <td className="px-2 py-2 font-mono text-xs text-white/40 whitespace-nowrap">{formatStamp(c.changed_at)}</td>
+                          <td className="px-2 py-2 text-sm text-white/70 whitespace-nowrap">{c.changed_by}</td>
+                          <td className="px-2 py-2 text-sm text-white/50 whitespace-nowrap">{c.section}</td>
+                          <td className="px-2 py-2 text-sm text-white/70 whitespace-nowrap">{c.staff_name}</td>
+                          <td className="px-2 py-2 text-sm text-white/50 whitespace-nowrap">{c.field}</td>
+                          <td className="px-2 py-2 font-mono text-xs text-red-300/80">{c.old_value}</td>
+                          <td className="px-2 py-2 font-mono text-xs text-emerald-300/80">{c.new_value}</td>
                         </tr>
                       ))}
                     </tbody>

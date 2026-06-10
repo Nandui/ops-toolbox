@@ -514,33 +514,35 @@ export default function ChemistryPage() {
       {/* ── Live command section ─────────────────────────────────────────────── */}
       <div className="space-y-4">
         {/* Header row */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-white/10">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-white/[0.06]">
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Operations console</div>
-            <h1 className="text-3xl font-light text-white leading-tight">Pool chemistry command</h1>
-            <p className="mt-1 text-sm text-slate-400">Live water quality and bather load data from Trail.</p>
+            <h1 className="text-title">Pool Chemistry</h1>
+            <p className="mt-1 text-callout text-white/50">Live water quality and bather load data from Trail.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <label htmlFor="chem-site-select" className="sr-only">Site</label>
             <select
+              id="chem-site-select"
               value={selectedSiteId}
               onChange={e => setSelectedSiteId(Number(e.target.value))}
-              className="border border-white/10 bg-slate-900/80 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/20"
+              className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             >
               {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
             <button
               onClick={fetchLiveData}
               disabled={liveLoading}
-              className="flex items-center gap-2 border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-300 hover:border-white/20 hover:text-white disabled:opacity-50 transition-colors"
+              aria-label="Refresh chemistry data"
+              className="flex items-center gap-2 h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white/60 hover:text-white disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             >
-              <RefreshCw className={`w-4 h-4 ${liveLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`size-4 ${liveLoading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
           </div>
         </div>
 
         {liveError && (
-          <div className="border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300 font-mono">{liveError}</div>
+          <div role="alert" aria-live="polite" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">{liveError}</div>
         )}
 
         {/* Bather load KPI strip */}
