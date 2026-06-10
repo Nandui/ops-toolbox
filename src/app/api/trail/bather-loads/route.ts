@@ -7,7 +7,7 @@ export async function GET() {
     const today = todayIso()
     const cacheKey = `bather-loads:${today}`
 
-    const cached = getCachedJson<{ instances: unknown[]; recordLogs: Record<string, unknown>; fetchedAt: string }>(cacheKey, 5)
+    const cached = await getCachedJson<{ instances: unknown[]; recordLogs: Record<string, unknown>; fetchedAt: string }>(cacheKey, 5)
     if (cached) return NextResponse.json({ ...cached.payload, cached: true })
 
     const instances = await fetchAllTaskInstances(today, today, [TEMPLATE_IDS.bathrLoads])
@@ -15,7 +15,7 @@ export async function GET() {
     const recordLogs = completedIds.length > 0 ? await fetchRecordLogs(completedIds) : {}
 
     const result = { instances, recordLogs, fetchedAt: new Date().toISOString() }
-    setCachedJson(cacheKey, result)
+    await setCachedJson(cacheKey, result)
 
     return NextResponse.json({ ...result, cached: false })
   } catch (err) {

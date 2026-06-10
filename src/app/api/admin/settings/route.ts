@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readSessionToken, verifySession } from '@/lib/auth'
-import { getDb } from '@/lib/db'
+import { getSql } from '@/lib/db'
 import fs from 'fs'
 import path from 'path'
 
@@ -43,8 +43,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const db = getDb()
-  const rows = db.prepare('SELECT key, value, updated_at FROM system_settings ORDER BY key').all() as { key: string; value: string; updated_at: string }[]
+  const sql = await getSql()
+  const rows = await sql`SELECT key, value, updated_at FROM system_settings ORDER BY key` as { key: string; value: string; updated_at: string }[]
   const settings = rows.map(r => ({
     ...r,
     value: SENSITIVE_KEYS.has(r.key) ? '••••••••' : r.value,
@@ -69,9 +69,10 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Setting is not editable via the API' }, { status: 400 })
   }
 
-  const db = getDb()
-  db.prepare(`INSERT OR REPLACE INTO system_settings (key, value, updated_at)
-              VALUES (?, ?, datetime('now'))`).run(key, value)
+  const sql = await getSql()
+  await sql`
+    INSERT INTO system_settings (key, value, updated_at) VALUES (${key}, ${value}, now())
+    ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = now()`
   persistToEnvLocal(key, value)
   return NextResponse.json({ ok: true })
 }

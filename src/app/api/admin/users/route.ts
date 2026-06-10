@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readSessionToken, verifySession } from '@/lib/auth'
-import { getDb } from '@/lib/db'
+import { getSql } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   const token = readSessionToken(request)
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const db = getDb()
-  const users = db.prepare('SELECT id, email, name, role, site_ids, active, last_login_at, created_at FROM users ORDER BY id').all()
+  const sql = await getSql()
+  const users = await sql`SELECT id, email, name, role, site_ids, active, last_login_at, created_at FROM users ORDER BY id`
   return NextResponse.json(users)
 }
