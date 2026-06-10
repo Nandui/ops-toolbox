@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, Plus, Trash2, Save, Copy } from 'lucide-react'
+import { RefreshCw, Plus, Trash2, Save, Copy, Printer } from 'lucide-react'
 import { SITES } from '@/lib/portal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -88,6 +88,89 @@ function mergeStoredSections(stored: OpsLogData): OpsSection[] {
     // Recompute break entitlement so stored rows reflect current rules
     return { ...found, rows: found.rows.map(r => r.shift ? { ...r, breakMins: breakEntitlement(r.shift).mins } : r) }
   })
+}
+
+// ── Print / export ────────────────────────────────────────────────────────────
+
+function escapeHtml(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function buildPrintHtml(log: OpsLogData, siteName: string, dayLabel: string): string {
+  const sectionsHtml = log.sections.map(section => {
+    const rows = section.rows.filter(r => r.name.trim() || r.shift.trim() || r.duties.trim() || r.extra.trim())
+    if (rows.length === 0) return ''
+    const rowsHtml = rows.map(r => {
+      const detail = breakEntitlement(r.shift).detail
+      return `<tr>
+        <td class="name">${escapeHtml(r.name)}</td>
+        <td class="mono">${escapeHtml(r.shift)}</td>
+        <td class="mono center" title="${escapeHtml(detail)}">${escapeHtml(r.breakMins)}</td>
+        <td class="mono center">${escapeHtml(r.break1)}</td>
+        <td class="mono center">${escapeHtml(r.break2)}</td>
+        <td class="mono center">${escapeHtml(r.break3)}</td>
+        <td>${escapeHtml(r.duties)}</td>
+        <td>${escapeHtml(r.extra)}</td>
+      </tr>`
+    }).join('')
+    return `
+      <tr class="section"><td colspan="8">${escapeHtml(section.title)}</td></tr>
+      ${rowsHtml}`
+  }).filter(Boolean).join('')
+
+  const bookings = (label: string, value: string) => value.trim()
+    ? `<div class="bookings"><h2>${label}</h2><p>${escapeHtml(value).replace(/\n/g, '<br>')}</p></div>`
+    : ''
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ops Log — ${escapeHtml(siteName)} — ${escapeHtml(dayLabel)}</title>
+<style>
+  @page { size: A4 landscape; margin: 10mm 12mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10pt; color: #111; }
+  header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #111; padding-bottom: 6px; margin-bottom: 10px; }
+  header h1 { font-size: 16pt; font-weight: 700; }
+  header .meta { font-size: 11pt; text-align: right; }
+  header .meta strong { display: block; font-size: 12pt; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #999; padding: 3px 6px; text-align: left; vertical-align: middle; }
+  thead th { background: #e8e8e8; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.08em; }
+  tr.section td { background: #d9d9d9; font-weight: 700; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 6px; }
+  td.name { font-weight: 600; width: 13%; }
+  td.mono { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.center { text-align: center; }
+  tbody tr { page-break-inside: avoid; }
+  tr.section { page-break-after: avoid; }
+  .bookings { margin-top: 10px; border: 1px solid #999; padding: 6px 8px; page-break-inside: avoid; }
+  .bookings h2 { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+  .bookings p { font-size: 10pt; }
+  footer { margin-top: 8px; font-size: 8pt; color: #555; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Daily Ops Log</h1>
+  <div class="meta"><strong>${escapeHtml(siteName)}</strong>${escapeHtml(dayLabel)}</div>
+</header>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th><th>Shift</th><th>Breaks (min)</th><th>15</th><th>30</th><th>15</th><th>Duties</th><th>Cover / Extra</th>
+    </tr>
+  </thead>
+  <tbody>${sectionsHtml}</tbody>
+</table>
+${bookings('Pool Bookings', log.poolBookings)}
+${bookings('Gym Bookings', log.gymBookings)}
+<footer>
+  <span>LeisureWorld · Manager Portal</span>
+  <span>Printed ${new Date().toLocaleString('en-IE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+</footer>
+</body>
+</html>`
 }
 
 function todayKey() {
@@ -201,6 +284,17 @@ export default function OpsLogPage() {
 
   const dayLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-IE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
+  const printLog = useCallback(() => {
+    const siteName = SITES.find(s => s.id === siteId)?.name ?? 'LeisureWorld'
+    const win = window.open('', '_blank')
+    if (!win) { setError('Pop-up blocked — allow pop-ups to print the ops log'); return }
+    win.document.write(buildPrintHtml(log, siteName, dayLabel))
+    win.document.close()
+    win.focus()
+    // Give the new window a moment to render before opening the print dialog
+    setTimeout(() => win.print(), 250)
+  }, [log, siteId, dayLabel])
+
   return (
     <div className="space-y-6">
 
@@ -220,6 +314,10 @@ export default function OpsLogPage() {
           <button onClick={copyPrev} title="Copy previous day as starting point"
             className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-2 font-mono">
             <Copy className="w-3.5 h-3.5" /> Copy prev
+          </button>
+          <button onClick={printLog} disabled={loading} title="Print or save as PDF (A4)"
+            className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-400 hover:text-white disabled:opacity-40 transition-colors flex items-center gap-2 font-mono">
+            <Printer className="w-3.5 h-3.5" /> Print
           </button>
           <button onClick={fetchLog} disabled={loading}
             className="border border-white/10 bg-slate-900/80 p-2 text-slate-400 hover:text-white disabled:opacity-40 transition-colors">
