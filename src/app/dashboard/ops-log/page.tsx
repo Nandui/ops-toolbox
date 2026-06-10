@@ -49,12 +49,45 @@ function emptyRow(): OpsRow {
   return { name: '', shift: '', breakMins: '', break1: '', break2: '', break3: '', duties: '', extra: '' }
 }
 
+// ── Break entitlement rules ───────────────────────────────────────────────────
+// >4h and <6h  → 15 min (one 15-min unpaid break)
+// 6h–8h        → 45 min (30 unpaid + one 15-min paid)
+// >8h–10h      → 60 min (30 unpaid + two 15-min paid)
+// >10h         → 75 min (45 unpaid + two 15-min paid)
+
+function parseShiftHours(shift: string): number | null {
+  const m = shift.match(/(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})/)
+  if (!m) return null
+  const start = Number(m[1]) * 60 + Number(m[2])
+  let end = Number(m[3]) * 60 + Number(m[4])
+  if (end <= start) end += 24 * 60 // overnight shift
+  return (end - start) / 60
+}
+
+function breakEntitlement(shift: string): { mins: string; detail: string } {
+  const hours = parseShiftHours(shift)
+  if (hours === null) return { mins: '', detail: '' }
+  if (hours <= 4)  return { mins: '0',  detail: 'No break entitlement (4h or less)' }
+  if (hours < 6)   return { mins: '15', detail: '1 × 15 min (unpaid)' }
+  if (hours <= 8)  return { mins: '45', detail: '30 min unpaid + 1 × 15 min paid' }
+  if (hours <= 10) return { mins: '60', detail: '30 min unpaid + 2 × 15 min paid' }
+  return { mins: '75', detail: '45 min unpaid + 2 × 15 min paid' }
+}
+
 function blankLog(): OpsLogData {
   return {
     sections: SECTION_DEFS.map(s => ({ ...s, rows: [emptyRow()] })),
     poolBookings: '',
     gymBookings: '',
   }
+}
+
+function mergeStoredSections(stored: OpsLogData): OpsSection[] {
+  return SECTION_DEFS.map(def => {
+    const found = stored.sections?.find(s => s.id === def.id) ?? { ...def, rows: [emptyRow()] }
+    // Recompute break entitlement so stored rows reflect current rules
+    return { ...found, rows: found.rows.map(r => r.shift ? { ...r, breakMins: breakEntitlement(r.shift).mins } : r) }
+  })
 }
 
 function todayKey() {
@@ -76,11 +109,17 @@ function OpsRowEditor({ row, onChange, onRemove }: {
   onRemove: () => void
 }) {
   const set = (k: keyof OpsRow) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...row, [k]: e.target.value })
+  const entitlement = breakEntitlement(row.shift)
+  const setShift = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const shift = e.target.value
+    onChange({ ...row, shift, breakMins: breakEntitlement(shift).mins })
+  }
   return (
     <div className="grid gap-1 items-center" style={{ gridTemplateColumns: '1.3fr 1fr 0.55fr 0.7fr 0.7fr 0.7fr 1.6fr 1.2fr auto' }}>
       <input className={inputCls} placeholder="Name"           value={row.name}      onChange={set('name')} />
-      <input className={inputCls} placeholder="06:30–13:30"    value={row.shift}     onChange={set('shift')} />
-      <input className={inputCls} placeholder="45"             value={row.breakMins} onChange={set('breakMins')} />
+      <input className={inputCls} placeholder="06:30-13:30"    value={row.shift}     onChange={setShift} />
+      <input className={`${inputCls} text-slate-400 cursor-default`} placeholder="—" value={row.breakMins}
+        readOnly tabIndex={-1} title={entitlement.detail || 'Auto-calculated from shift'} />
       <input className={inputCls} placeholder="x"              value={row.break1}    onChange={set('break1')} />
       <input className={inputCls} placeholder="x"              value={row.break2}    onChange={set('break2')} />
       <input className={inputCls} placeholder="x"              value={row.break3}    onChange={set('break3')} />
@@ -114,9 +153,7 @@ export default function OpsLogPage() {
       const json = await res.json()
       if (json.log) {
         const stored: OpsLogData = json.log
-        // Merge: preserve template section order, fill in any new sections
-        const sections = SECTION_DEFS.map(def => stored.sections?.find(s => s.id === def.id) ?? { ...def, rows: [emptyRow()] })
-        setLog({ sections, poolBookings: stored.poolBookings ?? '', gymBookings: stored.gymBookings ?? '' })
+        setLog({ sections: mergeStoredSections(stored), poolBookings: stored.poolBookings ?? '', gymBookings: stored.gymBookings ?? '' })
         setMeta({ by: json.updatedBy, at: json.updatedAt })
       } else {
         setLog(blankLog())
@@ -152,8 +189,7 @@ export default function OpsLogPage() {
       const json = await res.json()
       if (!json.log) { setError(`No log found for ${prev}`); return }
       const stored: OpsLogData = json.log
-      const sections = SECTION_DEFS.map(def => stored.sections?.find(s => s.id === def.id) ?? { ...def, rows: [emptyRow()] })
-      setLog({ sections, poolBookings: stored.poolBookings ?? '', gymBookings: stored.gymBookings ?? '' })
+      setLog({ sections: mergeStoredSections(stored), poolBookings: stored.poolBookings ?? '', gymBookings: stored.gymBookings ?? '' })
       setDirty(true)
     } catch (e) { setError(String(e)) }
   }, [date, siteId])
