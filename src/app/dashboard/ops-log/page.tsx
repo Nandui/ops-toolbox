@@ -315,11 +315,11 @@ function OpsRowEditor({ row, onChange, onRemove }: {
 
 function StatusPill({ status }: { status: LogStatus }) {
   const cls = status === 'approved'
-    ? 'text-green-400 border-green-600/40 bg-green-500/10'
-    : 'text-amber-400 border-amber-500/40 bg-amber-500/10'
+    ? 'bg-emerald-500/15 text-emerald-300'
+    : 'bg-amber-500/15 text-amber-300'
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 border text-[10px] font-mono tracking-widest uppercase whitespace-nowrap ${cls}`}>
-      {status === 'approved' && <Lock className="w-3 h-3" />}
+    <span className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${cls}`}>
+      {status === 'approved' && <Lock className="size-3" />}
       {status === 'approved' ? 'Approved' : 'Draft'}
     </span>
   )
@@ -590,7 +590,7 @@ export default function OpsLogPage() {
       {loading ? (
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="border border-white/[0.08] bg-white/[0.03] p-4 h-24 animate-pulse" />
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-white/[0.045]" />
           ))}
         </div>
       ) : (

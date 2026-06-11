@@ -107,14 +107,14 @@ type PillLevel = 'ok' | 'warning' | 'critical' | 'neutral'
 function Pill({ level, label }: { level: PillLevel; label: string }) {
   const cls =
     level === 'ok'
-      ? 'text-green-400 border-green-600/40 bg-green-500/10'
+      ? 'bg-emerald-500/15 text-emerald-300'
       : level === 'warning'
-      ? 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10'
+      ? 'bg-amber-500/15 text-amber-300'
       : level === 'critical'
-      ? 'text-red-400 border-red-600/40 bg-red-500/10'
-      : 'text-slate-500 border-slate-700 bg-transparent'
+      ? 'bg-red-500/15 text-red-300'
+      : 'bg-white/[0.08] text-white/60'
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 border text-[10px] font-mono tracking-widest uppercase whitespace-nowrap ${cls}`}>
+    <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${cls}`}>
       {label}
     </span>
   )
@@ -216,17 +216,14 @@ export default function IncidentsPage() {
 
   if (loading && incidents.length === 0 && !error) {
     return (
-      <div className="space-y-8">
-        <div className="pb-4 border-b border-white/10">
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Operations console</div>
-          <div className="h-8 w-48 bg-white/[0.04] animate-pulse" />
-        </div>
-        <div className="grid grid-cols-4 gap-3">
+      <div className="space-y-6">
+        <div className="h-7 w-40 animate-pulse rounded-lg bg-white/[0.06]" />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="border border-white/[0.08] bg-white/[0.03] p-4 h-20 animate-pulse" />
+            <div key={i} className="h-20 animate-pulse rounded-2xl bg-white/[0.045]" />
           ))}
         </div>
-        <div className="text-sm text-slate-500 font-mono text-center py-12">Loading incidents…</div>
+        <p className="py-12 text-center text-[15px] text-white/40">Loading incidents…</p>
       </div>
     )
   }
@@ -235,17 +232,16 @@ export default function IncidentsPage() {
     <div className="space-y-6">
 
       {/* ── Header ────────────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Operations console</div>
-          <h1 className="text-3xl font-light text-white">Incident log</h1>
-        </div>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <h1 className="text-title">Incidents</h1>
         {tab === 'active' && (
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2">
+            <label htmlFor="incidents-site" className="sr-only">Site</label>
             <select
+              id="incidents-site"
               value={siteFilter}
               onChange={e => setSiteFilter(e.target.value)}
-              className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-white/20"
+              className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             >
               <option value="">All sites</option>
               {options.sites.map(s => <option key={s} value={s}>{s}</option>)}
@@ -253,27 +249,30 @@ export default function IncidentsPage() {
             <button
               onClick={() => void fetchData('refresh')}
               disabled={loading || refreshing}
-              className="border border-white/10 bg-slate-900/80 p-2 text-slate-400 hover:text-white disabled:opacity-40 transition-colors"
+              aria-label="Refresh incidents"
+              className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 text-white/50 hover:text-white disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
           </div>
         )}
       </div>
 
       {/* ── Tabs ──────────────────────────────────────────────────────────────── */}
-      <div className="flex gap-1">
+      <div role="tablist" aria-label="Incident views" className="inline-flex rounded-xl bg-white/[0.06] p-1">
         {([
           { id: 'active', label: 'Active incidents' },
           { id: 'submit', label: 'Submit incident' },
         ] as const).map(t => (
           <button
             key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
             onClick={() => { setTab(t.id); setError(null); setSuccess(null) }}
-            className={`px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest border transition-colors ${
+            className={`rounded-lg px-3 py-1.5 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               tab === t.id
-                ? 'border-white/[0.15] bg-white/[0.05] text-white'
-                : 'border-transparent text-slate-500 hover:text-slate-300'
+                ? 'bg-white/[0.12] font-medium text-white shadow-[0_1px_2px_rgb(0_0_0/0.2)]'
+                : 'text-white/50 hover:text-white/80'
             }`}
           >
             {t.label}
@@ -283,15 +282,15 @@ export default function IncidentsPage() {
 
       {/* ── Alerts ────────────────────────────────────────────────────────────── */}
       {error && (
-        <div className="border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300 font-mono">{error}</div>
+        <div role="alert" aria-live="polite" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">{error}</div>
       )}
       {success && (
-        <div className="border border-green-500/20 bg-green-500/10 p-3 text-sm text-green-300 font-mono flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
+        <div role="status" className="flex flex-wrap items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 ring-1 ring-inset ring-emerald-500/20">
+          <CheckCircle2 className="size-4 shrink-0" />
           {success}
           {createdUrl && (
-            <a href={createdUrl} target="_blank" rel="noreferrer" className="ml-2 inline-flex items-center gap-1 text-green-200 underline underline-offset-2">
-              Open in Notion <Link2 className="w-3 h-3" />
+            <a href={createdUrl} target="_blank" rel="noreferrer" className="ml-1 inline-flex items-center gap-1 text-emerald-200 underline underline-offset-2">
+              Open in Notion <Link2 className="size-3" />
             </a>
           )}
         </div>
@@ -301,33 +300,29 @@ export default function IncidentsPage() {
       {tab === 'active' && (
         <>
           {/* KPI strip */}
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Overview</div>
-            <div className="grid grid-cols-4 gap-3">
-              {[
-                { label: 'Active incidents', value: activeCount },
-                { label: 'High / critical',  value: highCount  },
-                { label: 'Status buckets',   value: Object.keys(statusCounts).length },
-                { label: 'Attachments',      value: attachedCount },
-              ].map(({ label, value }) => (
-                <article key={label} className="border border-white/[0.08] bg-white/[0.03] p-4">
-                  <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500 mb-2">{label}</div>
-                  <div className="font-mono text-3xl font-light text-white">{value}</div>
-                </article>
-              ))}
-            </div>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[
+              { label: 'Active incidents', value: activeCount },
+              { label: 'High / critical',  value: highCount  },
+              { label: 'Status buckets',   value: Object.keys(statusCounts).length },
+              { label: 'Attachments',      value: attachedCount },
+            ].map(({ label, value }) => (
+              <article key={label} className="surface-card p-4">
+                <div className="text-caption text-white/40">{label}</div>
+                <div className="mt-1.5 font-mono text-3xl font-light text-white">{value}</div>
+              </article>
+            ))}
           </div>
 
           {/* Incidents list */}
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Incidents</div>
             <div className="space-y-2">
               {visibleIncidents.length === 0 ? (
-                <div className="border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm text-slate-500 font-mono">
+                <div className="surface-card px-6 py-12 text-center text-[15px] text-white/40">
                   {siteFilter ? `No active incidents for ${siteFilter}` : 'No active incidents in Notion'}
                 </div>
               ) : visibleIncidents.map(incident => (
-                <article key={incident.pageId} className="border border-white/[0.08] bg-white/[0.03] p-4">
+                <article key={incident.pageId} className="surface-card p-4">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <p className="text-sm font-medium text-white min-w-0 flex-1">{incident.title}</p>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -336,34 +331,34 @@ export default function IncidentsPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 font-mono mb-2">
-                    {incident.site && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{incident.site}</span>}
-                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(incident.incidentDate)}</span>
-                    {incident.incidentTime && <span className="flex items-center gap-1"><Clock3 className="w-3 h-3" />{incident.incidentTime}</span>}
-                    {incident.daysOpen != null && <span className="flex items-center gap-1"><BadgeAlert className="w-3 h-3" />{incident.daysOpen}d open</span>}
-                    <span className="flex items-center gap-1 ml-auto text-slate-600">
+                  <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-mono text-white/40">
+                    {incident.site && <span className="flex items-center gap-1"><MapPin className="size-3" />{incident.site}</span>}
+                    <span className="flex items-center gap-1"><Calendar className="size-3" />{formatDate(incident.incidentDate)}</span>
+                    {incident.incidentTime && <span className="flex items-center gap-1"><Clock3 className="size-3" />{incident.incidentTime}</span>}
+                    {incident.daysOpen != null && <span className="flex items-center gap-1"><BadgeAlert className="size-3" />{incident.daysOpen}d open</span>}
+                    <span className="ml-auto flex items-center gap-1 text-white/30">
                       {formatCreatedAt(incident.createdTime)}
-                      <a href={incident.url} target="_blank" rel="noreferrer" className="ml-1 text-slate-500 hover:text-slate-300">
-                        <Link2 className="w-3 h-3" />
+                      <a href={incident.url} target="_blank" rel="noreferrer" aria-label="Open incident in Notion" className="ml-1 flex size-6 items-center justify-center rounded text-white/40 hover:text-white/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+                        <Link2 className="size-3" />
                       </a>
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-                    <MetaLine icon={<Tag className="w-3 h-3" />} label="Category" value={incident.category || '—'} />
-                    <MetaLine icon={<MapPin className="w-3 h-3" />} label="Area" value={incident.likelyArea || '—'} />
-                    <MetaLine icon={<User className="w-3 h-3" />} label="Reported by" value={incident.reportedBy.map(p => p.name).join(', ') || '—'} />
-                    <MetaLine icon={<Paperclip className="w-3 h-3" />} label="Files" value={String(incident.files.length)} />
+                  <div className="grid grid-cols-1 gap-1.5 text-xs sm:grid-cols-2">
+                    <MetaLine icon={<Tag className="size-3" />} label="Category" value={incident.category || '—'} />
+                    <MetaLine icon={<MapPin className="size-3" />} label="Area" value={incident.likelyArea || '—'} />
+                    <MetaLine icon={<User className="size-3" />} label="Reported by" value={incident.reportedBy.map(p => p.name).join(', ') || '—'} />
+                    <MetaLine icon={<Paperclip className="size-3" />} label="Files" value={String(incident.files.length)} />
                   </div>
 
                   {incident.peopleInvolved && (
-                    <p className="mt-2 text-[11px] font-mono text-slate-400 border-t border-white/[0.06] pt-2">
-                      <span className="text-slate-600">People involved · </span>{incident.peopleInvolved}
+                    <p className="mt-2 border-t border-white/[0.06] pt-2 text-xs text-white/55">
+                      <span className="text-white/35">People involved · </span>{incident.peopleInvolved}
                     </p>
                   )}
                   {incident.reviewNotes && (
-                    <p className="mt-1.5 text-[11px] font-mono text-slate-400">
-                      <span className="text-slate-600">Review notes · </span>{incident.reviewNotes}
+                    <p className="mt-1.5 text-xs text-white/55">
+                      <span className="text-white/35">Review notes · </span>{incident.reviewNotes}
                     </p>
                   )}
                   {incident.files.length > 0 && (
@@ -371,7 +366,7 @@ export default function IncidentsPage() {
                       {incident.files.map(file => (
                         <a key={`${incident.pageId}-${file.name}`} href={file.url || incident.url}
                           target="_blank" rel="noreferrer"
-                          className="text-[10px] font-mono text-slate-400 border border-white/[0.08] px-2 py-0.5 hover:text-slate-200 transition-colors">
+                          className="rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] text-white/55 hover:bg-white/[0.09] hover:text-white/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
                           {file.name}
                         </a>
                       ))}
@@ -384,12 +379,12 @@ export default function IncidentsPage() {
 
           {/* Status breakdown */}
           {Object.keys(statusCounts).length > 0 && (
-            <div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">By status</div>
+            <div className="space-y-2">
+              <h2 className="text-headline text-white/80">By status</h2>
               <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4">
                 {Object.entries(statusCounts).map(([status, count]) => (
-                  <article key={status} className="border border-white/[0.08] bg-white/[0.03] p-3 flex items-center justify-between">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">{status}</span>
+                  <article key={status} className="surface-card flex items-center justify-between p-3">
+                    <span className="text-caption text-white/45">{status}</span>
                     <span className="font-mono text-lg text-white">{count}</span>
                   </article>
                 ))}
@@ -401,14 +396,14 @@ export default function IncidentsPage() {
 
       {/* ── Submit incident tab ───────────────────────────────────────────────── */}
       {tab === 'submit' && (
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">New incident report</div>
-          <div className="border border-white/[0.08] bg-white/[0.03] p-5 space-y-4">
-            <p className="text-xs text-slate-500">
+        <div className="space-y-3">
+          <h2 className="text-headline text-white/80">New incident report</h2>
+          <div className="surface-card space-y-4 p-5">
+            <p className="text-callout text-white/45">
               Creates a new record in the Notion incidents database. Status defaults to Not Reviewed.
               {reporter
-                ? <span className="ml-1">Reporting as <span className="text-slate-300">{reporter.name}</span>.</span>
-                : <span className="ml-1 text-yellow-500/80">No Notion user match for your portal account.</span>
+                ? <span className="ml-1">Reporting as <span className="text-white/75">{reporter.name}</span>.</span>
+                : <span className="ml-1 text-amber-300/80">No Notion user match for your portal account.</span>
               }
             </p>
 
@@ -468,14 +463,14 @@ export default function IncidentsPage() {
                   rows={2} placeholder="Optional notes for the reviewer" className={textareaClass} />
               </Field>
 
-              <div className="flex items-center justify-between gap-3 pt-1">
-                <p className="text-[10px] font-mono text-slate-600 flex items-center gap-1">
-                  <User className="w-3 h-3" />
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <p className="flex items-center gap-1 text-caption text-white/35">
+                  <User className="size-3" />
                   Reporter auto-matched from your portal account
                 </p>
                 <button type="submit" disabled={submitting}
-                  className="flex items-center gap-2 border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-mono text-red-300 hover:bg-red-500/20 disabled:opacity-50 transition-colors">
-                  {submitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  className="flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2 text-sm text-red-300 hover:bg-red-500/20 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+                  {submitting ? <RefreshCw className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
                   Submit to Notion
                 </button>
               </div>
@@ -492,8 +487,8 @@ export default function IncidentsPage() {
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="block space-y-1">
-      <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-500">{label}</span>
+    <label className="block space-y-1.5">
+      <span className="text-caption text-white/50">{label}</span>
       {children}
     </label>
   )
@@ -501,13 +496,13 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function MetaLine({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-1.5 text-slate-500">
+    <div className="flex items-center gap-1.5 text-white/40">
       {icon}
-      <span className="text-slate-600">{label}:</span>
-      <span className="text-slate-300 truncate">{value}</span>
+      <span className="text-white/35">{label}:</span>
+      <span className="truncate text-white/70">{value}</span>
     </div>
   )
 }
 
-const inputClass = 'w-full border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/20 font-mono'
+const inputClass = 'w-full rounded-lg border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40'
 const textareaClass = `${inputClass} min-h-[80px] resize-y`

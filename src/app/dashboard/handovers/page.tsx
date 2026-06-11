@@ -1,19 +1,21 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, MapPin, User, Calendar } from 'lucide-react'
+import { RefreshCw, MapPin, User, Calendar, ClipboardList } from 'lucide-react'
 import type { TrailTaskInstance, TrailRecordLog } from '@/lib/trail/client'
+import { LoadingState } from '@/components/ui/loading-state'
+import { EmptyState } from '@/components/ui/empty-state'
 
 type PillLevel = 'ok' | 'pending' | 'neutral'
 
 function Pill({ level, label }: { level: PillLevel; label: string }) {
   const colours: Record<PillLevel, string> = {
-    ok:      'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
-    pending: 'border-blue-500/30    bg-blue-500/10    text-blue-300',
-    neutral: 'border-white/10       bg-white/[0.03]   text-slate-400',
+    ok:      'bg-emerald-500/15 text-emerald-300',
+    pending: 'bg-blue-500/15 text-blue-300',
+    neutral: 'bg-white/[0.08] text-white/60',
   }
   return (
-    <span className={`inline-block border px-2 py-0.5 text-[10px] font-mono tracking-widest uppercase whitespace-nowrap ${colours[level]}`}>
+    <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${colours[level]}`}>
       {label}
     </span>
   )
@@ -104,16 +106,15 @@ export default function HandoversPage() {
     <div className="space-y-6">
 
       {/* ── Header ─────────────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Operations console</div>
-          <h1 className="text-3xl font-light text-white">Duty manager handovers</h1>
-        </div>
-        <div className="flex items-center gap-2 pt-1">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <h1 className="text-title">Handovers</h1>
+        <div className="flex items-center gap-2">
+          <label htmlFor="handovers-range" className="sr-only">Date range</label>
           <select
+            id="handovers-range"
             value={days}
             onChange={e => setDays(Number(e.target.value))}
-            className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-white/20"
+            className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             <option value={7}>Last 7 days</option>
             <option value={14}>Last 14 days</option>
@@ -122,49 +123,47 @@ export default function HandoversPage() {
           <button
             onClick={fetchData}
             disabled={loading}
-            className="border border-white/10 bg-slate-900/80 p-2 text-slate-400 hover:text-white disabled:opacity-40 transition-colors"
+            aria-label="Refresh handovers"
+            className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 text-white/50 hover:text-white disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-mono text-red-400">
+        <div role="alert" aria-live="polite" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">
           {error}
         </div>
       )}
 
       {/* ── KPI strip ──────────────────────────────────────────────────────────── */}
-      <div>
-        <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Overview</div>
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: 'Total entries',  value: handovers.length },
-            { label: 'Completed',      value: handovers.filter(h => !!h.completedDatetime).length },
-            { label: 'Pending',        value: handovers.filter(h => !h.completedDatetime).length },
-          ].map(({ label, value }) => (
-            <article key={label} className="border border-white/[0.08] bg-white/[0.03] p-4">
-              <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500 mb-2">{label}</div>
-              <div className="font-mono text-3xl font-light text-white">{value}</div>
-            </article>
-          ))}
-        </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[
+          { label: 'Total entries',  value: handovers.length },
+          { label: 'Completed',      value: handovers.filter(h => !!h.completedDatetime).length },
+          { label: 'Pending',        value: handovers.filter(h => !h.completedDatetime).length },
+        ].map(({ label, value }) => (
+          <article key={label} className="surface-card p-4">
+            <div className="text-caption text-white/40">{label}</div>
+            <div className="mt-1.5 font-mono text-3xl font-light text-white">{value}</div>
+          </article>
+        ))}
       </div>
 
       {/* ── List ───────────────────────────────────────────────────────────────── */}
-      <div>
-        <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">
-          Handover log — last {days} days
-        </div>
+      <div className="space-y-3">
+        <h2 className="text-headline text-white/80">Handover log — last {days} days</h2>
 
         {loading && handovers.length === 0 ? (
-          <div className="border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm font-mono text-slate-500">
-            Loading…
-          </div>
+          <LoadingState label="Loading handovers…" />
         ) : handovers.length === 0 ? (
-          <div className="border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm font-mono text-slate-500">
-            No handovers found in the last {days} days
+          <div className="surface-card">
+            <EmptyState
+              icon={ClipboardList}
+              title="No handovers found"
+              description={`No handover entries in the last ${days} days.`}
+            />
           </div>
         ) : (
           <div className="space-y-2">
@@ -175,38 +174,38 @@ export default function HandoversPage() {
               )
 
               return (
-                <article key={ho.taskInstanceId} className="border border-white/[0.08] bg-white/[0.03] p-4">
+                <article key={ho.taskInstanceId} className="surface-card p-4">
 
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <span className="text-sm text-white font-medium">{ho.taskInstanceName}</span>
+                  <div className="mb-3 flex items-start justify-between gap-4">
+                    <span className="text-sm font-medium text-white">{ho.taskInstanceName}</span>
                     <Pill level={ho.completedDatetime ? 'ok' : 'pending'} label={ho.completedDatetime ? 'Completed' : 'Pending'} />
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-mono text-slate-500 mb-3">
-                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{ho.siteName}</span>
-                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(ho.dueFromDatetime)}</span>
+                  <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-white/40">
+                    <span className="flex items-center gap-1"><MapPin className="size-3" />{ho.siteName}</span>
+                    <span className="flex items-center gap-1"><Calendar className="size-3" />{formatDate(ho.dueFromDatetime)}</span>
                     {ho.completedByUserName && (
-                      <span className="flex items-center gap-1"><User className="w-3 h-3" />{ho.completedByUserName}</span>
+                      <span className="flex items-center gap-1"><User className="size-3" />{ho.completedByUserName}</span>
                     )}
                     {ho.completedDatetime && (
-                      <span className="text-slate-600">completed {formatDate(ho.completedDatetime)}</span>
+                      <span className="text-white/30">completed {formatDate(ho.completedDatetime)}</span>
                     )}
                   </div>
 
                   {allSections.length > 0 && (
-                    <div className="border-t border-white/[0.06] pt-3 space-y-4">
+                    <div className="space-y-4 border-t border-white/[0.06] pt-3">
                       {allSections.map(({ section, fields }) => (
                         <div key={section || '__top__'}>
                           {section && (
-                            <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500 mb-2">
+                            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
                               {section}
                             </div>
                           )}
                           <div className="space-y-2">
                             {fields.map(field => (
                               <div key={field.id}>
-                                <div className="text-[11px] text-slate-500 leading-snug mb-0.5">{field.name}</div>
-                                <div className="text-[12px] text-slate-200 leading-snug">{formatFieldValue(field)}</div>
+                                <div className="mb-0.5 text-xs leading-snug text-white/40">{field.name}</div>
+                                <div className="text-[13px] leading-snug text-white/85">{formatFieldValue(field)}</div>
                               </div>
                             ))}
                           </div>

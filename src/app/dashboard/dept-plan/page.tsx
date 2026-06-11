@@ -309,7 +309,7 @@ export default function DeptPlanPage() {
       {loading ? (
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="border border-white/[0.08] bg-white/[0.03] p-4 h-24 animate-pulse" />
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-white/[0.045]" />
           ))}
         </div>
       ) : (
