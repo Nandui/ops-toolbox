@@ -34,10 +34,10 @@ const FILTER_LABELS: Record<FilterState, string> = {
   completed: 'Completed',
 }
 
-// Trail's sign-off flow moves a completed task into "Pending approval" status
-// until a manager approves it inside the Trail app. Normalise robustly.
+// Trail's camelCase status convention: completed, completedLate, inProgress,
+// overdue, pendingApproval. Normalise defensively for any casing variant.
 function normStatus(s: string) {
-  return (s || '').toLowerCase().replace(/[\s-]+/g, '_')
+  return (s || '').toLowerCase()
 }
 function isPendingApproval(t: TaskInstance) {
   const n = normStatus(t.status)
@@ -47,9 +47,7 @@ function isApproved(t: TaskInstance) {
   return normStatus(t.status).includes('approved')
 }
 
-// Deep link to the task instance in Trail's Task Reports UI.
-// Opens the approval screen directly where the manager can sign off.
-function trailApprovalUrl(taskInstanceId: number) {
+function trailTaskUrl(taskInstanceId: number) {
   return `https://web.trailapp.com/reports/task_instances/${taskInstanceId}`
 }
 
@@ -57,13 +55,16 @@ const controlCls = 'h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 t
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<TaskInstance[]>([])
+  const [pendingApprovalTasks, setPendingApprovalTasks] = useState<TaskInstance[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingApprovals, setLoadingApprovals] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [filter, setFilter] = useState<FilterState>('all')
   const [siteFilter, setSiteFilter] = useState<number | null>(null)
 
-  const fetchData = useCallback(async () => {
+  // Daily tasks — filtered by the selected date and templates
+  const fetchTasks = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -78,35 +79,58 @@ export default function TasksPage() {
     }
   }, [date])
 
+  // Pending-approval tasks — cross last 14 days, all templates, independent of date filter
+  const fetchPendingApprovals = useCallback(async () => {
+    setLoadingApprovals(true)
+    try {
+      const res = await fetch('/api/trail/tasks/pending-approval')
+      if (!res.ok) throw new Error(`API error: ${res.status}`)
+      const data = await res.json()
+      setPendingApprovalTasks(data.instances || [])
+    } catch {
+      // Non-fatal — daily tasks still display
+      setPendingApprovalTasks([])
+    } finally {
+      setLoadingApprovals(false)
+    }
+  }, [])
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchData()
-  }, [fetchData])
+    fetchTasks()
+  }, [fetchTasks])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchPendingApprovals()
+  }, [fetchPendingApprovals])
 
   const now = new Date()
 
   const visible = tasks.filter(t => !siteFilter || t.siteId === siteFilter)
 
-  const filtered = visible.filter(t => {
-    if (filter === 'pending_approval') return isPendingApproval(t)
-    if (filter === 'completed')        return !!t.completedDatetime && !isPendingApproval(t)
-    if (filter === 'pending')          return !t.completedDatetime
-    if (filter === 'overdue')          return !t.completedDatetime && new Date(t.dueByDatetime) < now
-    return true
-  })
+  // Pending approvals, optionally filtered by site
+  const pendingApproval = pendingApprovalTasks.filter(t => !siteFilter || t.siteId === siteFilter)
 
-  // Pending-approval tasks float to the top — they are the actionable items.
-  const sorted = [...filtered].sort((a, b) => {
-    const pa = isPendingApproval(a) ? 0 : 1
-    const pb = isPendingApproval(b) ? 0 : 1
-    if (pa !== pb) return pa - pb
-    return new Date(a.dueByDatetime).getTime() - new Date(b.dueByDatetime).getTime()
-  })
+  const filtered = filter === 'pending_approval'
+    ? pendingApproval
+    : visible.filter(t => {
+        if (filter === 'completed') return !!t.completedDatetime && !isPendingApproval(t)
+        if (filter === 'pending')   return !t.completedDatetime
+        if (filter === 'overdue')   return !t.completedDatetime && new Date(t.dueByDatetime) < now
+        return true
+      })
 
-  const pendingApprovalCount = visible.filter(isPendingApproval).length
-  const completedCount       = visible.filter(t => !!t.completedDatetime && !isPendingApproval(t)).length
-  const overdueCount         = visible.filter(t => !t.completedDatetime && new Date(t.dueByDatetime) < now).length
+  const sorted = [...filtered].sort((a, b) =>
+    new Date(a.dueByDatetime).getTime() - new Date(b.dueByDatetime).getTime()
+  )
 
+  const completedCount = visible.filter(t => !!t.completedDatetime && !isPendingApproval(t)).length
+  const overdueCount   = visible.filter(t => !t.completedDatetime && new Date(t.dueByDatetime) < now).length
+
+  function formatDate(iso: string) {
+    return new Date(iso).toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })
+  }
   function formatTime(iso: string) {
     return new Date(iso).toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })
   }
@@ -130,53 +154,69 @@ export default function TasksPage() {
             <option value="">All sites</option>
             {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
-          <Button variant="tertiary" size="icon" onClick={fetchData} disabled={loading} aria-label="Refresh tasks">
-            <RefreshCw className={loading ? 'animate-spin' : ''} />
+          <Button
+            variant="tertiary"
+            size="icon"
+            onClick={() => { fetchTasks(); fetchPendingApprovals() }}
+            disabled={loading || loadingApprovals}
+            aria-label="Refresh tasks"
+          >
+            <RefreshCw className={loading || loadingApprovals ? 'animate-spin' : ''} />
           </Button>
         </div>
       </div>
 
       {error && <StatusBanner variant="error">{error}</StatusBanner>}
 
+      {/* ── Pending approval call-to-action ──────────────────────────────────── */}
+      {(pendingApproval.length > 0 || loadingApprovals) && (
+        <div className={`surface-card flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3 ${pendingApproval.length > 0 ? 'ring-1 ring-inset ring-amber-500/20' : ''}`}>
+          <div className="flex items-start gap-3">
+            <ShieldCheck className={`mt-0.5 size-5 shrink-0 ${loadingApprovals ? 'text-white/30' : 'text-amber-300'}`} />
+            <div>
+              {loadingApprovals ? (
+                <p className="text-sm text-white/40">Checking for pending approvals…</p>
+              ) : (
+                <>
+                  <p className="text-sm text-white">
+                    {pendingApproval.length} task{pendingApproval.length === 1 ? '' : 's'} awaiting sign-off
+                  </p>
+                  <p className="mt-0.5 text-[13px] text-white/45">
+                    Approval is managed in Trail — open each task below to sign off.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+          {!loadingApprovals && pendingApproval.length > 0 && (
+            <a
+              href="https://web.trailapp.com/reports"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[10px] bg-amber-500/15 px-3 text-[13px] font-medium text-amber-300 transition-colors hover:bg-amber-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              Open Trail reports <ExternalLink className="size-3.5" />
+            </a>
+          )}
+        </div>
+      )}
+
       {/* ── KPI strip ──────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
-          { label: 'Total',            value: visible.length,       colour: 'text-white' },
-          { label: 'Pending approval', value: pendingApprovalCount, colour: pendingApprovalCount > 0 ? 'text-amber-300' : 'text-white/60' },
-          { label: 'Completed',        value: completedCount,       colour: 'text-emerald-300' },
-          { label: 'Overdue',          value: overdueCount,         colour: overdueCount > 0 ? 'text-red-300' : 'text-white/60' },
+          { label: 'Total (today)',    value: visible.length,        colour: 'text-white' },
+          { label: 'Pending approval', value: pendingApproval.length, colour: pendingApproval.length > 0 ? 'text-amber-300' : 'text-white/60' },
+          { label: 'Completed',        value: completedCount,        colour: 'text-emerald-300' },
+          { label: 'Overdue',          value: overdueCount,          colour: overdueCount > 0 ? 'text-red-300' : 'text-white/60' },
         ].map(({ label, value, colour }) => (
           <article key={label} className="surface-card p-4">
             <div className="text-caption text-white/40">{label}</div>
-            <div className={`mt-1.5 font-mono text-3xl font-light ${colour}`}>{value}</div>
+            <div className={`mt-1.5 font-mono text-3xl font-light ${colour}`}>
+              {label === 'Pending approval' && loadingApprovals ? '…' : value}
+            </div>
           </article>
         ))}
       </div>
-
-      {/* ── Pending-approval call-to-action ──────────────────────────────────── */}
-      {pendingApprovalCount > 0 && (
-        <div className="surface-card flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3 ring-1 ring-inset ring-amber-500/20">
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-0.5 size-5 shrink-0 text-amber-300" />
-            <div>
-              <p className="text-sm text-white">
-                {pendingApprovalCount} task{pendingApprovalCount === 1 ? '' : 's'} awaiting sign-off
-              </p>
-              <p className="mt-0.5 text-[13px] text-white/45">
-                Approval is managed in Trail — open each task below to sign off.
-              </p>
-            </div>
-          </div>
-          <a
-            href="https://web.trailapp.com/reports"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[10px] bg-amber-500/15 px-3 text-[13px] font-medium text-amber-300 transition-colors hover:bg-amber-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-          >
-            Open Trail reports <ExternalLink className="size-3.5" />
-          </a>
-        </div>
-      )}
 
       {/* ── Filter tabs ────────────────────────────────────────────────────────── */}
       <div role="tablist" aria-label="Filter tasks" className="inline-flex flex-wrap rounded-xl bg-white/[0.06] p-1">
@@ -193,9 +233,9 @@ export default function TasksPage() {
             }`}
           >
             {FILTER_LABELS[f]}
-            {f === 'pending_approval' && pendingApprovalCount > 0 && (
+            {f === 'pending_approval' && !loadingApprovals && pendingApproval.length > 0 && (
               <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500/20 px-1 text-[10px] font-semibold text-amber-300">
-                {pendingApprovalCount}
+                {pendingApproval.length}
               </span>
             )}
           </button>
@@ -203,40 +243,89 @@ export default function TasksPage() {
       </div>
 
       {/* ── Task list ──────────────────────────────────────────────────────────── */}
-      {loading && tasks.length === 0 ? (
+      {filter === 'pending_approval' ? (
+        loadingApprovals ? (
+          <LoadingState label="Checking for tasks awaiting approval…" />
+        ) : sorted.length === 0 ? (
+          <div className="surface-card">
+            <EmptyState
+              icon={ShieldCheck}
+              title="Nothing to approve"
+              description="No tasks are waiting for sign-off in the last 14 days."
+            />
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {sorted.map(task => (
+              <article
+                key={task.taskInstanceId}
+                className="surface-card flex items-center gap-4 px-4 py-3 ring-1 ring-inset ring-amber-500/25"
+              >
+                <ShieldCheck className="size-4 shrink-0 text-amber-300" />
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-white">{task.taskInstanceName}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-xs text-white/40">
+                    <span>{task.siteName}</span>
+                    <span className="text-white/20">·</span>
+                    <span>{formatDate(task.dueByDatetime)}</span>
+                    {task.completedDatetime && (
+                      <>
+                        <span className="text-white/20">·</span>
+                        <span className="text-emerald-400/70">completed {formatTime(task.completedDatetime)}</span>
+                      </>
+                    )}
+                    {task.completedByUserName && (
+                      <>
+                        <span className="text-white/20">·</span>
+                        <span>{task.completedByUserName}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {task.exceptionCount > 0 && (
+                  <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2.5 text-[12px] font-medium text-amber-300">
+                    <AlertTriangle className="size-3" />{task.exceptionCount}
+                  </span>
+                )}
+
+                <a
+                  href={trailTaskUrl(task.taskInstanceId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[10px] bg-amber-500/15 px-3 text-[13px] font-medium text-amber-300 transition-colors hover:bg-amber-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  aria-label={`Approve "${task.taskInstanceName}" in Trail`}
+                >
+                  Approve <ExternalLink className="size-3.5" />
+                </a>
+              </article>
+            ))}
+          </div>
+        )
+      ) : loading && tasks.length === 0 ? (
         <LoadingState label="Loading tasks…" />
       ) : sorted.length === 0 ? (
         <div className="surface-card">
           <EmptyState
-            icon={filter === 'pending_approval' ? ShieldCheck : CheckSquare}
-            title={filter === 'pending_approval' ? 'Nothing to approve' : 'No tasks found'}
-            description={
-              filter === 'pending_approval'
-                ? 'No tasks are waiting for sign-off on this day.'
-                : filter !== 'all'
-                ? `No ${FILTER_LABELS[filter].toLowerCase()} tasks for this day.`
-                : 'No tasks scheduled for this day.'
-            }
+            icon={CheckSquare}
+            title="No tasks found"
+            description={filter !== 'all' ? `No ${FILTER_LABELS[filter].toLowerCase()} tasks for this day.` : 'No tasks scheduled for this day.'}
           />
         </div>
       ) : (
         <div className="space-y-1.5">
           {sorted.map(task => {
-            const pending     = isPendingApproval(task)
             const approved    = isApproved(task)
             const isOverdue   = !task.completedDatetime && new Date(task.dueByDatetime) < now
             const isCompleted = !!task.completedDatetime
             return (
               <article
                 key={task.taskInstanceId}
-                className={`surface-card flex items-center gap-4 px-4 py-3 ${
-                  pending ? 'ring-1 ring-inset ring-amber-500/25' : isOverdue ? 'ring-1 ring-inset ring-red-500/25' : ''
-                }`}
+                className={`surface-card flex items-center gap-4 px-4 py-3 ${isOverdue ? 'ring-1 ring-inset ring-red-500/25' : ''}`}
               >
                 <div className="shrink-0">
-                  {pending
-                    ? <ShieldCheck className="size-4 text-amber-300" />
-                    : approved || isCompleted
+                  {approved || isCompleted
                     ? <CheckCircle className="size-4 text-emerald-400" />
                     : isOverdue
                     ? <XCircle    className="size-4 text-red-400" />
@@ -270,19 +359,7 @@ export default function TasksPage() {
                   </span>
                 )}
 
-                {pending && (
-                  <a
-                    href={trailApprovalUrl(task.taskInstanceId)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[10px] bg-amber-500/15 px-3 text-[13px] font-medium text-amber-300 transition-colors hover:bg-amber-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-                    aria-label={`Approve "${task.taskInstanceName}" in Trail`}
-                  >
-                    Approve <ExternalLink className="size-3.5" />
-                  </a>
-                )}
-
-                {approved && !pending && (
+                {approved && (
                   <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 text-[12px] font-medium text-emerald-300">
                     <CheckCircle className="size-3" /> Approved
                   </span>

@@ -33,11 +33,6 @@ export async function GET(request: NextRequest) {
 
     await setCachedJson(cacheKey, result)
 
-    if (searchParams.get('debug') === '1') {
-      const statuses = [...new Set(instances.map(i => (i as { status: string }).status))]
-      return NextResponse.json({ statuses, sample: instances.slice(0, 3), cached: false })
-    }
-
     return NextResponse.json({ ...result, cached: false })
   } catch (err) {
     console.error('Tasks API error:', err)
