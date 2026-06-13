@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { fetchAllTaskInstances } from '@/lib/trail/client'
 import { getCachedJson, setCachedJson, todayIso, daysAgoIso } from '@/lib/trail/cache'
 
@@ -18,16 +18,33 @@ function isPendingApproval(status: string) {
 const CACHE_KEY = 'tasks:pending_approval'
 const CACHE_TTL_MINUTES = 2
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const cached = await getCachedJson<{ instances: unknown[]; fetchedAt: string }>(CACHE_KEY, CACHE_TTL_MINUTES)
-    if (cached) return NextResponse.json({ ...cached.payload, cached: true })
+    const debug = request.nextUrl.searchParams.get('debug') === '1'
+
+    if (!debug) {
+      const cached = await getCachedJson<{ instances: unknown[]; fetchedAt: string }>(CACHE_KEY, CACHE_TTL_MINUTES)
+      if (cached) return NextResponse.json({ ...cached.payload, cached: true })
+    }
 
     const startDate = daysAgoIso(14)
     const endDate = todayIso()
 
     // No taskTemplateIds → Trail returns instances from all templates
     const all = await fetchAllTaskInstances(startDate, endDate)
+
+    if (debug) {
+      // Show every distinct status value and a sample of each so we can
+      // identify the exact string Trail uses for pending-approval tasks.
+      const byStatus: Record<string, unknown[]> = {}
+      for (const i of all) {
+        const s = (i as { status: string }).status
+        if (!byStatus[s]) byStatus[s] = []
+        if (byStatus[s].length < 2) byStatus[s].push(i)
+      }
+      return NextResponse.json({ dateRange: `${startDate} → ${endDate}`, total: all.length, byStatus })
+    }
+
     const instances = all.filter(i => isPendingApproval(i.status))
 
     const result = { instances, fetchedAt: new Date().toISOString() }
