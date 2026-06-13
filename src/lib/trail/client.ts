@@ -44,12 +44,10 @@ export async function fetchTaskTemplates() {
 export async function fetchTaskInstances(
   startDate: string,
   endDate: string,
-  taskTemplateIds: number[] | undefined,
+  taskTemplateIds: number[],
   pageStart?: string
 ): Promise<{ data: TrailTaskInstance[]; nextCursor: string | null }> {
-  const body: Record<string, unknown> = { startDate, endDate }
-  // Omitting taskTemplateIds entirely returns all templates from Trail
-  if (taskTemplateIds && taskTemplateIds.length > 0) body.taskTemplateIds = taskTemplateIds
+  const body: Record<string, unknown> = { startDate, endDate, taskTemplateIds }
   if (pageStart) body.pageStart = pageStart
 
   const result = await trailFetch('/task_reports/v1/task_instances', {
@@ -65,7 +63,7 @@ export async function fetchTaskInstances(
 export async function fetchAllTaskInstances(
   startDate: string,
   endDate: string,
-  taskTemplateIds?: number[]
+  taskTemplateIds: number[]
 ): Promise<TrailTaskInstance[]> {
   const all: TrailTaskInstance[] = []
   let cursor: string | null = null
