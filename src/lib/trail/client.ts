@@ -94,6 +94,33 @@ export async function fetchChecklists(taskInstanceIds: number[]): Promise<Record
   return result.data ?? {}
 }
 
+// ── Task approval (sign-off) — WRITE ─────────────────────────────
+//
+// Trail's "Sign-off" setting moves a completed task into a "Pending approval"
+// status until a manager approves it. Approval is normally performed inside
+// the Trail app; the public Task Reports API is otherwise read-only reporting,
+// and an approval mutation is NOT part of its publicly documented surface as of
+// June 2026 (the API reference is auth-gated, so the exact contract could not
+// be machine-verified here).
+//
+// This call is therefore implemented against the most likely contract and made
+// configurable so the path/method can be corrected WITHOUT a code change once
+// confirmed with Trail — set TRAIL_APPROVE_PATH (and optionally TRAIL_APPROVE_METHOD).
+// trailFetch throws on any non-2xx response, embedding Trail's status + body, so
+// a wrong endpoint fails loudly upstream rather than silently mis-approving.
+const APPROVE_PATH = process.env.TRAIL_APPROVE_PATH || '/task_reports/v1/approve'
+const APPROVE_METHOD = process.env.TRAIL_APPROVE_METHOD || 'POST'
+
+export async function approveTaskInstances(taskInstanceIds: number[], approvedBy?: string) {
+  if (taskInstanceIds.length === 0) return { approved: [] as number[] }
+  const body: Record<string, unknown> = { taskInstanceIds }
+  if (approvedBy) body.approvedBy = approvedBy
+  return trailFetch(APPROVE_PATH, {
+    method: APPROVE_METHOD,
+    body: JSON.stringify(body),
+  })
+}
+
 export async function fetchScores(
   startDate: string,
   endDate: string,

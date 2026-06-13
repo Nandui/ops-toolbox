@@ -40,3 +40,9 @@ export async function setCachedJson(key: string, payload: unknown) {
     INSERT INTO trail_cache (key, data, fetched_at) VALUES (${key}, ${JSON.stringify(payload)}, now())
     ON CONFLICT (key) DO UPDATE SET data = excluded.data, fetched_at = now()`
 }
+
+/** Drop a cached entry so the next read re-fetches fresh (e.g. after a write). */
+export async function clearCachedJson(key: string) {
+  const sql = await getSql()
+  await sql`DELETE FROM trail_cache WHERE key = ${key}`
+}
