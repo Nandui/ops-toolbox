@@ -49,6 +49,10 @@ async function initSchema(sql: Sql) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )`)
 
+  // Drop the inline role CHECK constraint so new roles can be added without a table rebuild.
+  // Role validation is enforced at the API layer instead.
+  await sql.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`)
+
   await sql.query(`
     CREATE TABLE IF NOT EXISTS sites (
       id INTEGER PRIMARY KEY,
