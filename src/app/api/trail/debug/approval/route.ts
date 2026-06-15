@@ -9,7 +9,6 @@ import { todayIso, daysAgoIso } from '@/lib/trail/cache'
 // Open /api/trail/debug/approval — share the full JSON response.
 
 const BASE_URL = 'https://web.trailapp.com/api/public'
-const KNOWN_PENDING_TEMPLATE_IDS = [247590, 820783]
 
 function getApiKey() {
   const key = process.env.TRAIL_API_KEY
@@ -30,65 +29,62 @@ async function trailFetch(endpoint: string, options: RequestInit = {}) {
   return res.json()
 }
 
+type Instance = {
+  taskInstanceId: number
+  taskTemplateId: number
+  taskInstanceName: string
+  status: string
+}
+
+// Fetch all pages for a query, optionally adding a URL query string.
+async function fetchAll(body: Record<string, unknown>, queryString = ''): Promise<Instance[]> {
+  const all: Instance[] = []
+  let cursor: string | null = null
+  do {
+    const payload: Record<string, unknown> = { ...body }
+    if (cursor) payload.pageStart = cursor
+    const r: { data: Instance[]; page?: { nextCursor: string | null } } = await trailFetch(
+      `/task_reports/v1/task_instances${queryString}`,
+      { method: 'POST', body: JSON.stringify(payload) }
+    )
+    all.push(...r.data)
+    cursor = r.page?.nextCursor ?? null
+  } while (cursor)
+  return all
+}
+
+function summarise(rows: Instance[]) {
+  const byTemplate: Record<string, number> = {}
+  const byStatus: Record<string, number> = {}
+  const templateNames: Record<string, string> = {}
+  for (const r of rows) {
+    byTemplate[r.taskTemplateId] = (byTemplate[r.taskTemplateId] ?? 0) + 1
+    byStatus[r.status] = (byStatus[r.status] ?? 0) + 1
+    templateNames[r.taskTemplateId] = r.taskInstanceName
+  }
+  return { total: rows.length, distinctTemplates: Object.keys(byTemplate).length, byStatus, byTemplate, templateNames }
+}
+
 export async function GET() {
   try {
-    // 1. Inspect raw template data — are there approval-related fields beyond id/name/status/type?
     const templateData = await trailFetch('/task_templates/v1/list')
-    const allTemplates = (templateData.data ?? []) as Record<string, unknown>[]
+    const allTemplates = (templateData.data ?? []) as { id: number }[]
+    const templateIds = allTemplates.map(t => t.id)
 
-    // Build field inventory for templates
-    type FI = { types: Set<string>; distinct: Map<string, number>; tooMany: boolean; example: unknown }
-    const templateFieldInfo: Record<string, FI> = {}
-    for (const t of allTemplates) {
-      for (const [k, v] of Object.entries(t)) {
-        if (!templateFieldInfo[k]) templateFieldInfo[k] = { types: new Set(), distinct: new Map(), tooMany: false, example: v }
-        const fi = templateFieldInfo[k]
-        fi.types.add(Array.isArray(v) ? 'array' : v === null ? 'null' : typeof v)
-        if (!fi.tooMany && (typeof v === 'boolean' || typeof v === 'string')) {
-          const key = String(v)
-          fi.distinct.set(key, (fi.distinct.get(key) ?? 0) + 1)
-          if (fi.distinct.size > 20) fi.tooMany = true
-        } else if (!fi.tooMany) fi.tooMany = true
-      }
-    }
-
-    const templateFields = Object.fromEntries(
-      Object.entries(templateFieldInfo).map(([k, fi]) => [k, {
-        types: [...fi.types],
-        values: fi.tooMany ? null : Object.fromEntries(fi.distinct),
-        example: fi.tooMany ? fi.example : undefined,
-      }])
-    )
-
-    // Full raw data for the two templates with known pending approval tasks
-    const knownPendingTemplates = Object.fromEntries(
-      KNOWN_PENDING_TEMPLATE_IDS.map(id => [id, allTemplates.find(t => t.id === id) ?? null])
-    )
-
-    // 2. Try fetching task instances with approval filter as a QUERY PARAM (not body),
-    //    and also try a GET request variant, to see if Trail supports it differently.
-    const start = daysAgoIso(14)
+    // Short window keeps this well under serverless timeout.
+    const start = daysAgoIso(5)
     const end = todayIso()
-    let approvalQueryResult: unknown = null
-    try {
-      const r = await fetch(
-        `${BASE_URL}/task_reports/v1/task_instances?approval=pending_approval`,
-        {
-          method: 'POST',
-          headers: { 'API_KEY': getApiKey(), 'Content-Type': 'application/json' },
-          body: JSON.stringify({ startDate: start, endDate: end, taskTemplateIds: KNOWN_PENDING_TEMPLATE_IDS }),
-          cache: 'no-store',
-        }
-      )
-      approvalQueryResult = await r.json()
-    } catch (e) {
-      approvalQueryResult = { error: String(e) }
-    }
+    const base = { startDate: start, endDate: end, taskTemplateIds: templateIds }
+
+    // Decisive comparison: all templates, with vs without the approval query param.
+    const withFilter = await fetchAll(base, '?approval=pending_approval')
+    const without = await fetchAll(base)
 
     return NextResponse.json({
-      templateFields,
-      knownPendingTemplates,
-      approvalAsQueryParam: approvalQueryResult,
+      window: { start, end },
+      withApprovalParam: summarise(withFilter),
+      withoutParam: summarise(without),
+      filterNarrowsResults: withFilter.length !== without.length,
     })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
