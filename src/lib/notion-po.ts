@@ -1,11 +1,17 @@
 import { Client } from '@notionhq/client'
+import { getToken } from '@vercel/connect'
 import { getSql } from './db'
 
 const DB_ID = process.env.NOTION_PO_DATABASE_ID ?? '3804aed9d36380c19630cf52f59f26f3'
+const CONNECT_CONNECTOR = 'api.notion.com/lw-ops-toolbox'
 
-function getNotion() {
-  const token = process.env.NOTION_TOKEN
-  if (!token) throw new Error('NOTION_TOKEN is not set')
+async function getNotion() {
+  let token: string
+  if (process.env.NOTION_TOKEN) {
+    token = process.env.NOTION_TOKEN
+  } else {
+    token = await getToken(CONNECT_CONNECTOR, { subject: { type: 'app' } })
+  }
   return new Client({ auth: token })
 }
 
@@ -94,7 +100,7 @@ export async function ensureNotionSetup() {
   if (setupDone) return
   setupDone = true
   try {
-    const notion = getNotion()
+    const notion = await getNotion()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (notion.databases.update as any)({
       database_id: DB_ID,
@@ -145,7 +151,7 @@ export async function ensureNotionSetup() {
 
 export async function listPoRequests(): Promise<PoRecord[]> {
   await ensureNotionSetup()
-  const notion = getNotion()
+  const notion = await getNotion()
   const results: PoRecord[] = []
   let cursor: string | undefined
 
@@ -164,7 +170,7 @@ export async function listPoRequests(): Promise<PoRecord[]> {
 
 export async function getPoRequest(id: string): Promise<PoRecord | null> {
   try {
-    const notion = getNotion()
+    const notion = await getNotion()
     const page = await notion.pages.retrieve({ page_id: id })
     return pageToRecord(page)
   } catch {
@@ -174,7 +180,7 @@ export async function getPoRequest(id: string): Promise<PoRecord | null> {
 
 export async function createPoRequest(input: CreatePoInput): Promise<PoRecord> {
   await ensureNotionSetup()
-  const notion = getNotion()
+  const notion = await getNotion()
   const today = new Date().toISOString().split('T')[0]
   const page = await notion.pages.create({
     parent: { database_id: DB_ID },
@@ -198,7 +204,7 @@ export async function createPoRequest(input: CreatePoInput): Promise<PoRecord> {
 }
 
 export async function updatePoRequest(id: string, input: UpdatePoInput): Promise<PoRecord> {
-  const notion = getNotion()
+  const notion = await getNotion()
   const today = new Date().toISOString().split('T')[0]
   const page = await notion.pages.update({
     page_id: id,
