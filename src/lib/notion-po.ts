@@ -1,17 +1,21 @@
-import { Client } from '@notionhq/client'
 import { getToken } from '@vercel/connect'
 import { getSql } from './db'
 
 const DB_ID = process.env.NOTION_PO_DATABASE_ID ?? '3804aed9d36380c19630cf52f59f26f3'
 const CONNECT_CONNECTOR = 'api.notion.com/lw-ops-toolbox'
+const NOTION_VERSION = '2022-06-28'
 
 async function getNotionToken(): Promise<string> {
   if (process.env.NOTION_TOKEN) return process.env.NOTION_TOKEN
   return getToken(CONNECT_CONNECTOR, { subject: { type: 'app' } })
 }
 
-async function getNotion() {
-  return new Client({ auth: await getNotionToken() })
+function notionHeaders(token: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    'Notion-Version': NOTION_VERSION,
+  }
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -103,11 +107,7 @@ export async function ensureNotionSetup() {
     // Use raw REST API — SDK v5 removed `properties` from UpdateDatabaseParameters
     const res = await fetch(`https://api.notion.com/v1/databases/${DB_ID}`, {
       method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Notion-Version': '2022-06-28',
-      },
+      headers: notionHeaders(token),
       body: JSON.stringify({
         properties: {
           Site: {
@@ -163,18 +163,26 @@ export async function ensureNotionSetup() {
 
 export async function listPoRequests(): Promise<PoRecord[]> {
   await ensureNotionSetup()
-  const notion = await getNotion()
+  const token = await getNotionToken()
   const results: PoRecord[] = []
   let cursor: string | undefined
 
   do {
-    const resp = await notion.dataSources.query({
-      data_source_id: DB_ID,
-      start_cursor: cursor,
+    const body: Record<string, unknown> = {
       sorts: [{ timestamp: 'created_time', direction: 'descending' }],
+      page_size: 100,
+    }
+    if (cursor) body.start_cursor = cursor
+
+    const resp = await fetch(`https://api.notion.com/v1/databases/${DB_ID}/query`, {
+      method: 'POST',
+      headers: notionHeaders(token),
+      body: JSON.stringify(body),
     })
-    for (const page of resp.results) results.push(pageToRecord(page))
-    cursor = resp.has_more ? (resp.next_cursor ?? undefined) : undefined
+    if (!resp.ok) throw new Error(`Notion query failed: ${resp.status}`)
+    const data = await resp.json()
+    for (const page of data.results) results.push(pageToRecord(page))
+    cursor = data.has_more ? (data.next_cursor ?? undefined) : undefined
   } while (cursor)
 
   return results
@@ -182,9 +190,12 @@ export async function listPoRequests(): Promise<PoRecord[]> {
 
 export async function getPoRequest(id: string): Promise<PoRecord | null> {
   try {
-    const notion = await getNotion()
-    const page = await notion.pages.retrieve({ page_id: id })
-    return pageToRecord(page)
+    const token = await getNotionToken()
+    const resp = await fetch(`https://api.notion.com/v1/pages/${id}`, {
+      headers: notionHeaders(token),
+    })
+    if (!resp.ok) return null
+    return pageToRecord(await resp.json())
   } catch {
     return null
   }
@@ -192,48 +203,63 @@ export async function getPoRequest(id: string): Promise<PoRecord | null> {
 
 export async function createPoRequest(input: CreatePoInput): Promise<PoRecord> {
   await ensureNotionSetup()
-  const notion = await getNotion()
+  const token = await getNotionToken()
   const today = new Date().toISOString().split('T')[0]
-  const page = await notion.pages.create({
-    parent: { database_id: DB_ID },
-    properties: {
-      Name:             { title:     [{ text: { content: input.description } }] },
-      Site:             { select:    { name: input.site } },
-      Status:           { select:    { name: 'Pending Review' } },
-      Value:            { number:    input.value },
-      Supplier:         { rich_text: [{ text: { content: input.supplier } }] },
-      Urgency:          { select:    { name: input.urgency } },
-      'PO Number':      { rich_text: [] },
-      'Requested By':   { rich_text: [{ text: { content: input.requestedBy } }] },
-      'Request Date':   { date:      { start: today } },
-      'Admin Notes':    { rich_text: [] },
-      'Quote Filename': { rich_text: input.quoteFilename
-        ? [{ text: { content: input.quoteFilename } }]
-        : [] },
-    },
+  const resp = await fetch('https://api.notion.com/v1/pages', {
+    method: 'POST',
+    headers: notionHeaders(token),
+    body: JSON.stringify({
+      parent: { database_id: DB_ID },
+      properties: {
+        Name:             { title:     [{ text: { content: input.description } }] },
+        Site:             { select:    { name: input.site } },
+        Status:           { select:    { name: 'Pending Review' } },
+        Value:            { number:    input.value },
+        Supplier:         { rich_text: [{ text: { content: input.supplier } }] },
+        Urgency:          { select:    { name: input.urgency } },
+        'PO Number':      { rich_text: [] },
+        'Requested By':   { rich_text: [{ text: { content: input.requestedBy } }] },
+        'Request Date':   { date:      { start: today } },
+        'Admin Notes':    { rich_text: [] },
+        'Quote Filename': { rich_text: input.quoteFilename
+          ? [{ text: { content: input.quoteFilename } }]
+          : [] },
+      },
+    }),
   })
-  return pageToRecord(page)
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}))
+    throw new Error(`Notion page create failed: ${JSON.stringify(err)}`)
+  }
+  return pageToRecord(await resp.json())
 }
 
 export async function updatePoRequest(id: string, input: UpdatePoInput): Promise<PoRecord> {
-  const notion = await getNotion()
+  const token = await getNotionToken()
   const today = new Date().toISOString().split('T')[0]
-  const page = await notion.pages.update({
-    page_id: id,
-    properties: {
-      Status:         { select: { name: input.status } },
-      'Decision Date':{ date:   { start: today } },
-      ...(input.poNumber !== undefined
-        ? { 'PO Number': { rich_text: [{ text: { content: input.poNumber } }] } }
-        : {}),
-      ...(input.adminNotes !== undefined
-        ? { 'Admin Notes': { rich_text: input.adminNotes
-            ? [{ text: { content: input.adminNotes } }]
-            : [] } }
-        : {}),
-    },
+  const resp = await fetch(`https://api.notion.com/v1/pages/${id}`, {
+    method: 'PATCH',
+    headers: notionHeaders(token),
+    body: JSON.stringify({
+      properties: {
+        Status:          { select: { name: input.status } },
+        'Decision Date': { date:   { start: today } },
+        ...(input.poNumber !== undefined
+          ? { 'PO Number': { rich_text: [{ text: { content: input.poNumber } }] } }
+          : {}),
+        ...(input.adminNotes !== undefined
+          ? { 'Admin Notes': { rich_text: input.adminNotes
+              ? [{ text: { content: input.adminNotes } }]
+              : [] } }
+          : {}),
+      },
+    }),
   })
-  return pageToRecord(page)
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}))
+    throw new Error(`Notion page update failed: ${JSON.stringify(err)}`)
+  }
+  return pageToRecord(await resp.json())
 }
 
 // ── PO number generation (atomic via Postgres) ─────────────────────────────────
