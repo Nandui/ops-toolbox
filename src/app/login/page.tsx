@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Lock, Mail, Eye, EyeOff, Loader2, Zap, Waves } from 'lucide-react'
+import { Lock, Mail, Eye, EyeOff, Loader2, Waves, User, Users, ShieldCheck } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -9,22 +9,22 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [bypassing, setBypassing] = useState(false)
+  const [bypassing, setBypassing] = useState<string | null>(null)
 
-  async function handleBypass() {
-    setBypassing(true)
+  async function handleBypass(role: string) {
+    setBypassing(role)
     try {
-      const res = await fetch('/api/auth/bypass-login', { method: 'POST' })
+      const res = await fetch(`/api/auth/bypass-login?role=${role}`, { method: 'POST' })
       if (res.ok) {
         window.location.href = '/dashboard'
       } else {
         const body = await res.json().catch(() => null)
-        setError(body?.error ?? 'Bypass login failed')
-        setBypassing(false)
+        setError(body?.error ?? 'Dev login failed')
+        setBypassing(null)
       }
     } catch {
       setError('Network error')
-      setBypassing(false)
+      setBypassing(null)
     }
   }
 
@@ -152,15 +152,32 @@ export default function LoginPage() {
           </form>
         </div>
 
-        {/* Bypass */}
-        <button
-          onClick={handleBypass}
-          disabled={bypassing}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.04] px-4 py-3 text-[13px] text-white/40 hover:bg-white/[0.07] hover:text-white/60 disabled:opacity-50 transition-colors ring-[0.5px] ring-inset ring-white/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-        >
-          {bypassing ? <Loader2 className="size-4 animate-spin" /> : <Zap className="size-4" />}
-          Dev login
-        </button>
+        {/* Dev quick access */}
+        <div className="space-y-2">
+          <p className="px-1 text-[11px] font-medium uppercase tracking-wide text-white/20">
+            Quick access
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              { role: 'duty_manager',     label: 'Duty Manager',     Icon: User        },
+              { role: 'shift_supervisor', label: 'Shift Supervisor', Icon: Users       },
+              { role: 'admin',            label: 'Admin',            Icon: ShieldCheck },
+            ] as const).map(({ role, label, Icon }) => (
+              <button
+                key={role}
+                onClick={() => handleBypass(role)}
+                disabled={bypassing !== null}
+                className="flex flex-col items-center gap-1.5 rounded-xl bg-white/[0.04] px-2 py-3 text-[11px] text-white/40 ring-[0.5px] ring-inset ring-white/[0.06] transition-colors hover:bg-white/[0.07] hover:text-white/60 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              >
+                {bypassing === role
+                  ? <Loader2 className="size-4 animate-spin" />
+                  : <Icon className="size-4" />
+                }
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
       </div>
     </div>
