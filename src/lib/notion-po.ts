@@ -5,14 +5,13 @@ import { getSql } from './db'
 const DB_ID = process.env.NOTION_PO_DATABASE_ID ?? '3804aed9d36380c19630cf52f59f26f3'
 const CONNECT_CONNECTOR = 'api.notion.com/lw-ops-toolbox'
 
+async function getNotionToken(): Promise<string> {
+  if (process.env.NOTION_TOKEN) return process.env.NOTION_TOKEN
+  return getToken(CONNECT_CONNECTOR, { subject: { type: 'app' } })
+}
+
 async function getNotion() {
-  let token: string
-  if (process.env.NOTION_TOKEN) {
-    token = process.env.NOTION_TOKEN
-  } else {
-    token = await getToken(CONNECT_CONNECTOR, { subject: { type: 'app' } })
-  }
-  return new Client({ auth: token })
+  return new Client({ auth: await getNotionToken() })
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -100,50 +99,63 @@ export async function ensureNotionSetup() {
   if (setupDone) return
   setupDone = true
   try {
-    const notion = await getNotion()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (notion.databases.update as any)({
-      database_id: DB_ID,
-      properties: {
-        Site: {
-          select: {
-            options: [
-              { name: 'Bishopstown', color: 'blue' },
-              { name: 'Churchfield', color: 'green' },
-            ],
-          },
-        },
-        Status: {
-          select: {
-            options: [
-              { name: 'Pending Review', color: 'yellow' },
-              { name: 'Approved',       color: 'green'  },
-              { name: 'Rejected',       color: 'red'    },
-              { name: 'More Info Requested', color: 'orange' },
-            ],
-          },
-        },
-        Value:          { number: { format: 'euro' } },
-        Supplier:       { rich_text: {} },
-        Urgency: {
-          select: {
-            options: [
-              { name: 'Routine',   color: 'gray'   },
-              { name: 'Urgent',    color: 'orange' },
-              { name: 'Emergency', color: 'red'    },
-            ],
-          },
-        },
-        'PO Number':    { rich_text: {} },
-        'Requested By': { rich_text: {} },
-        'Request Date': { date: {} },
-        'Decision Date':{ date: {} },
-        'Admin Notes':  { rich_text: {} },
-        'Quote Filename':{ rich_text: {} },
+    const token = await getNotionToken()
+    // Use raw REST API — SDK v5 removed `properties` from UpdateDatabaseParameters
+    const res = await fetch(`https://api.notion.com/v1/databases/${DB_ID}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28',
       },
+      body: JSON.stringify({
+        properties: {
+          Site: {
+            select: {
+              options: [
+                { name: 'Bishopstown', color: 'blue' },
+                { name: 'Churchfield', color: 'green' },
+              ],
+            },
+          },
+          Status: {
+            select: {
+              options: [
+                { name: 'Pending Review',      color: 'yellow' },
+                { name: 'Approved',            color: 'green'  },
+                { name: 'Rejected',            color: 'red'    },
+                { name: 'More Info Requested', color: 'orange' },
+              ],
+            },
+          },
+          Value:            { number: { format: 'euro' } },
+          Supplier:         { rich_text: {} },
+          Urgency: {
+            select: {
+              options: [
+                { name: 'Routine',   color: 'gray'   },
+                { name: 'Urgent',    color: 'orange' },
+                { name: 'Emergency', color: 'red'    },
+              ],
+            },
+          },
+          'PO Number':      { rich_text: {} },
+          'Requested By':   { rich_text: {} },
+          'Request Date':   { date: {} },
+          'Decision Date':  { date: {} },
+          'Admin Notes':    { rich_text: {} },
+          'Quote Filename': { rich_text: {} },
+        },
+      }),
     })
-  } catch {
-    // Non-fatal: DB might already be set up or token lacks DB access
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      console.error('[notion-po] DB setup failed:', err)
+      setupDone = false  // allow retry on next request
+    }
+  } catch (e) {
+    console.error('[notion-po] DB setup error:', e)
+    setupDone = false
   }
 }
 
