@@ -312,7 +312,7 @@ export default function TasksPage() {
 
                 {isPending && (
                   <a
-                    href={`https://web.trailapp.com/reports/task_instances/${task.taskInstanceId}`}
+                    href={`https://web.trailapp.com/taskontrail?task=${task.taskInstanceId}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[10px] bg-amber-500/15 px-3 text-[13px] font-medium text-amber-300 transition-colors hover:bg-amber-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
