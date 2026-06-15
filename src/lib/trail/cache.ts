@@ -40,3 +40,4 @@ export async function setCachedJson(key: string, payload: unknown) {
     INSERT INTO trail_cache (key, data, fetched_at) VALUES (${key}, ${JSON.stringify(payload)}, now())
     ON CONFLICT (key) DO UPDATE SET data = excluded.data, fetched_at = now()`
 }
+

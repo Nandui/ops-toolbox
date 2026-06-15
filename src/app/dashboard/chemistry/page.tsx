@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { RefreshCw, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { LoadingState } from '@/components/ui/loading-state'
 import { SITES } from '@/lib/portal'
 import type { TrailTaskInstance, TrailRecordLog } from '@/lib/trail/client'
 
@@ -273,16 +274,16 @@ function computeTrend(readings: Reading[], metricKey: MetricKey): 'up' | 'down' 
 function StatusPill({ level, label }: { level: StatusLevel | 'live' | 'outdated' | 'aged'; label: string }) {
   const cls =
     level === 'ok' || level === 'live'
-      ? 'text-green-400 border-green-600/40 bg-green-500/10'
+      ? 'bg-emerald-500/15 text-emerald-300'
       : level === 'warning' || level === 'outdated'
-      ? 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10'
+      ? 'bg-amber-500/15 text-amber-300'
       : level === 'critical'
-      ? 'text-red-400 border-red-600/40 bg-red-500/10'
+      ? 'bg-red-500/15 text-red-300'
       : level === 'aged'
-      ? 'text-orange-400 border-orange-500/40 bg-orange-500/10'
-      : 'text-slate-500 border-slate-700 bg-transparent'
+      ? 'bg-orange-500/15 text-orange-300'
+      : 'bg-white/[0.08] text-white/60'
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 border text-[10px] font-mono tracking-widest uppercase whitespace-nowrap ${cls}`}>
+    <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${cls}`}>
       {label}
     </span>
   )
@@ -372,21 +373,21 @@ function MetricBlock({ metricKey, value, lastTime, recentReadings = [] }: { metr
     <div className="space-y-2 pt-3 border-t border-white/[0.06] first:pt-0 first:border-t-0">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500 mb-1">{t.label}</div>
-          <div className="font-mono leading-none text-white text-4xl">
+          <div className="mb-1 text-caption text-white/40">{t.label}</div>
+          <div className="font-mono text-4xl leading-none text-white">
             {displayValue}
-            {value !== null && t.unit && <span className="text-xl text-slate-400 ml-1">{t.unit}</span>}
+            {value !== null && t.unit && <span className="ml-1 text-xl text-white/45">{t.unit}</span>}
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          {trend === 'up'     && <TrendingUp   className="w-3.5 h-3.5 text-slate-400" />}
-          {trend === 'down'   && <TrendingDown className="w-3.5 h-3.5 text-slate-400" />}
-          {trend === 'stable' && <Minus        className="w-3.5 h-3.5 text-slate-400" />}
+          {trend === 'up'     && <TrendingUp   className="size-3.5 text-white/45" />}
+          {trend === 'down'   && <TrendingDown className="size-3.5 text-white/45" />}
+          {trend === 'stable' && <Minus        className="size-3.5 text-white/45" />}
           <StatusPill level={status} label={statusLabel} />
         </div>
       </div>
       <RangeBar value={value} metricKey={metricKey} />
-      <div className="text-[10px] text-slate-500 font-mono">
+      <div className="text-caption text-white/35">
         {targetBand}{lastTime ? ` · last test ${lastTime}` : ''}
       </div>
     </div>
@@ -405,9 +406,9 @@ function PoolChemCard({ poolLabel, readings }: { poolLabel: string; readings: Re
   const tempKey: MetricKey = poolLabel === 'Learners Pool' ? 'waterTempLearners' : 'waterTemp'
 
   return (
-    <article className="border border-white/[0.08] p-4 bg-white/[0.03]">
+    <article className="surface-card p-4">
       <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
-        <h3 className="font-mono text-sm uppercase tracking-[0.14em] text-white">{poolLabel}</h3>
+        <h3 className="text-headline text-white">{poolLabel}</h3>
         <div className="flex items-center gap-2">
           {isStale && <StatusPill level="outdated" label="Stale" />}
           {isAged && <StatusPill level="aged" label="Old data" />}
@@ -431,17 +432,17 @@ function BatherKpiCard({ poolLabel, count, completedAt }: { poolLabel: string; c
   const isOutdated = ageMinutes === null || ageMinutes > 45
 
   return (
-    <article className="border border-white/[0.08] p-4 bg-white/[0.03]">
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400 leading-snug">
+    <article className="surface-card p-4">
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <span className="text-caption leading-snug text-white/50">
           {poolLabel}<br />swimmers now
         </span>
         <StatusPill level={isOutdated ? 'outdated' : 'live'} label={isOutdated ? 'Outdated' : 'Live'} />
       </div>
-      <div className="font-mono leading-none text-white mb-3" style={{ fontSize: 'clamp(32px, 3vw, 48px)' }}>
+      <div className="mb-3 font-mono leading-none text-white" style={{ fontSize: 'clamp(32px, 3vw, 48px)' }}>
         {count !== null ? count.toLocaleString() : '—'}
       </div>
-      <div className="text-[10px] font-mono text-slate-500">
+      <div className="text-caption text-white/35">
         {completedAt
           ? ageMinutes === 0
             ? 'Just updated'
@@ -514,39 +515,41 @@ export default function ChemistryPage() {
       {/* ── Live command section ─────────────────────────────────────────────── */}
       <div className="space-y-4">
         {/* Header row */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-white/10">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-white/[0.06]">
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Operations console</div>
-            <h1 className="text-3xl font-light text-white leading-tight">Pool chemistry command</h1>
-            <p className="mt-1 text-sm text-slate-400">Live water quality and bather load data from Trail.</p>
+            <h1 className="text-title">Pool Chemistry</h1>
+            <p className="mt-1 text-callout text-white/50">Live water quality and bather load data from Trail.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <label htmlFor="chem-site-select" className="sr-only">Site</label>
             <select
+              id="chem-site-select"
               value={selectedSiteId}
               onChange={e => setSelectedSiteId(Number(e.target.value))}
-              className="border border-white/10 bg-slate-900/80 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/20"
+              className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             >
               {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
             <button
               onClick={fetchLiveData}
               disabled={liveLoading}
-              className="flex items-center gap-2 border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-300 hover:border-white/20 hover:text-white disabled:opacity-50 transition-colors"
+              aria-label="Refresh chemistry data"
+              className="flex items-center gap-2 h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white/60 hover:text-white disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             >
-              <RefreshCw className={`w-4 h-4 ${liveLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`size-4 ${liveLoading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
           </div>
         </div>
 
         {liveError && (
-          <div className="border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300 font-mono">{liveError}</div>
+          <div role="alert" aria-live="polite" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">{liveError}</div>
         )}
 
         {/* Bather load KPI strip */}
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Bather loads</div>
-          <div className={`grid gap-3 ${sitePoolLabels.length === 3 ? 'grid-cols-3' : sitePoolLabels.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        <div className="space-y-2">
+          <h2 className="text-headline text-white/80">Bather loads</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {sitePoolLabels.map(poolLabel => (
               <BatherKpiCard
                 key={poolLabel}
@@ -559,14 +562,14 @@ export default function ChemistryPage() {
         </div>
 
         {/* Chemistry command panel */}
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Pool Chemistry</div>
+        <div className="space-y-2">
+          <h2 className="text-headline text-white/80">Pool chemistry</h2>
           {liveLoading && liveReadings.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-500 font-mono">Loading chemistry data…</div>
+            <LoadingState label="Loading chemistry data…" />
           ) : sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-500">No pools configured for this site.</div>
+            <div className="surface-card px-6 py-12 text-center text-[15px] text-white/40">No pools configured for this site.</div>
           ) : (
-            <div className={`grid gap-3 ${sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 3 ? 'grid-cols-3' : sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {sitePoolLabels
                 .filter(p => p !== 'Chlorine & CO2')
                 .map(poolLabel => (

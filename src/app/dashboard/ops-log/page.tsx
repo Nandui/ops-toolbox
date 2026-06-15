@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { RefreshCw, Plus, Trash2, Save, Copy, Printer, Lock, History, ChevronDown, ChevronUp, Download } from 'lucide-react'
 import { SITES } from '@/lib/portal'
+import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
+import { StatusBanner } from '@/components/ui/status-banner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -69,7 +72,9 @@ const SECTION_DEFS = [
   { id: 'maintenance',      title: 'Maintenance' },
 ]
 
-const inputCls = 'w-full border border-white/10 bg-slate-900/80 px-2 py-1.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/20 font-mono'
+const GRID_COLS = '1.3fr 1fr 0.55fr 0.7fr 0.7fr 0.7fr 1.6fr 1.2fr 2rem'
+
+const inputCls = 'w-full rounded-sm border border-white/10 bg-slate-900/80 px-2 py-1.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset font-mono'
 
 function emptyRow(): OpsRow {
   return { name: '', shift: '', breakMins: '', break1: '', break2: '', break3: '', duties: '', extra: '' }
@@ -290,18 +295,29 @@ function OpsRowEditor({ row, onChange, onRemove }: {
     onChange({ ...row, shift, breakMins: breakEntitlement(shift).mins })
   }
   return (
-    <div className="grid gap-1 items-center" style={{ gridTemplateColumns: '1.3fr 1fr 0.55fr 0.7fr 0.7fr 0.7fr 1.6fr 1.2fr auto' }}>
-      <input className={inputCls} placeholder="Name"           value={row.name}      onChange={set('name')} />
-      <input className={inputCls} placeholder="06:30-13:30"    value={row.shift}     onChange={setShift} />
-      <input className={`${inputCls} text-slate-400 cursor-default`} placeholder="—" value={row.breakMins}
-        readOnly tabIndex={-1} title={entitlement.detail || 'Auto-calculated from shift'} />
-      <input className={inputCls} placeholder="x"              value={row.break1}    onChange={set('break1')} />
-      <input className={inputCls} placeholder="x"              value={row.break2}    onChange={set('break2')} />
-      <input className={inputCls} placeholder="x"              value={row.break3}    onChange={set('break3')} />
-      <input className={inputCls} placeholder="Duties / notes" value={row.duties}    onChange={set('duties')} />
-      <input className={inputCls} placeholder="Cover / extra"  value={row.extra}     onChange={set('extra')} />
-      <button onClick={onRemove} className="p-1.5 text-slate-600 hover:text-red-400 transition-colors">
-        <Trash2 className="w-3.5 h-3.5" />
+    <div className="grid gap-1 items-center" style={{ gridTemplateColumns: GRID_COLS }}>
+      <input aria-label="Staff name"                      className={inputCls} placeholder="Name"           value={row.name}     onChange={set('name')} />
+      <input aria-label="Shift time (e.g. 06:30–13:30)"  className={inputCls} placeholder="06:30-13:30"    value={row.shift}    onChange={setShift} />
+      <input
+        aria-label="Break entitlement (auto-calculated from shift)"
+        className="w-full cursor-default border-0 bg-transparent px-2 py-1.5 text-center font-mono text-sm text-white/45 focus:outline-none"
+        placeholder="—"
+        value={row.breakMins}
+        readOnly
+        tabIndex={-1}
+        title={entitlement.detail || 'Auto-calculated from shift'}
+      />
+      <input aria-label="First 15-minute break time"      className={inputCls} placeholder="x"              value={row.break1}   onChange={set('break1')} />
+      <input aria-label="30-minute break time"            className={inputCls} placeholder="x"              value={row.break2}   onChange={set('break2')} />
+      <input aria-label="Second 15-minute break time"     className={inputCls} placeholder="x"              value={row.break3}   onChange={set('break3')} />
+      <input aria-label="Duties and notes"                className={inputCls} placeholder="Duties / notes" value={row.duties}   onChange={set('duties')} />
+      <input aria-label="Cover or extra duties"           className={inputCls} placeholder="Cover / extra"  value={row.extra}    onChange={set('extra')} />
+      <button
+        onClick={onRemove}
+        aria-label="Remove row"
+        className="flex size-8 shrink-0 items-center justify-center rounded text-white/30 hover:bg-red-500/10 hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+      >
+        <Trash2 className="size-3.5" />
       </button>
     </div>
   )
@@ -311,11 +327,11 @@ function OpsRowEditor({ row, onChange, onRemove }: {
 
 function StatusPill({ status }: { status: LogStatus }) {
   const cls = status === 'approved'
-    ? 'text-green-400 border-green-600/40 bg-green-500/10'
-    : 'text-amber-400 border-amber-500/40 bg-amber-500/10'
+    ? 'bg-emerald-500/15 text-emerald-300'
+    : 'bg-amber-500/15 text-amber-300'
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 border text-[10px] font-mono tracking-widest uppercase whitespace-nowrap ${cls}`}>
-      {status === 'approved' && <Lock className="w-3 h-3" />}
+    <span className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${cls}`}>
+      {status === 'approved' && <Lock className="size-3" />}
       {status === 'approved' ? 'Approved' : 'Draft'}
     </span>
   )
@@ -375,7 +391,16 @@ export default function OpsLogPage() {
     finally { setLoading(false) }
   }, [date, siteId, applyResponse])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchLog() }, [fetchLog])
+
+  // Guard against losing an unsaved roster on navigation / tab close
+  useEffect(() => {
+    if (!dirty) return
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [dirty])
 
   const persist = useCallback(async (action: 'save' | 'approve') => {
     setSaving(true); setError(null)
@@ -449,202 +474,262 @@ export default function OpsLogPage() {
     setTimeout(() => win.print(), 250)
   }, [log, siteId, dayLabel, meta, changes])
 
+  // A fresh, untouched log → offer the two natural starting points up front
+  const showStarter = !loading && !dirty && !isApproved && staffCount === 0 && !meta.updatedAt
+
+  // The single most relevant action right now; rendered as the one primary button
+  const nextStep: 'save' | 'approve' | 'print' | null =
+    dirty ? 'save'
+    : isApproved ? 'print'
+    : staffCount > 0 ? 'approve'
+    : null
+
+  const stateHint =
+    dirty && isApproved ? 'Unsaved amendment — saving records the change in the history below.'
+    : dirty ? 'Unsaved changes.'
+    : isApproved ? 'Locked. You can still edit — every change is tracked as an amendment.'
+    : staffCount > 0 ? 'When the roster is final, approve to lock the log and enable printing.'
+    : null
+
   return (
     <div className="space-y-6">
 
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Operations console</div>
-          <h1 className="text-3xl font-light text-white">Daily ops log</h1>
-        </div>
-        <div className="flex items-center gap-2 pt-1 flex-wrap">
-          <select value={siteId} onChange={e => setSiteId(Number(e.target.value))}
-            className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-white/20">
-            {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)}
-            className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-white/20" />
-          <button onClick={fetchLog} disabled={loading}
-            className="border border-white/10 bg-slate-900/80 p-2 text-slate-400 hover:text-white disabled:opacity-40 transition-colors">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
+      {/* ── Header — the date is the document's identity ─────────────────────── */}
+      <PageHeader
+        title="Daily Ops Log"
+        subtitle={staffCount > 0 ? `${dayLabel} · ${staffCount} staff assigned` : dayLabel}
+        actions={
+          <>
+            <label htmlFor="ops-site-select" className="sr-only">Site</label>
+            <select
+              id="ops-site-select"
+              value={siteId}
+              onChange={e => setSiteId(Number(e.target.value))}
+              className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <label htmlFor="ops-date-input" className="sr-only">Date</label>
+            <input
+              id="ops-date-input"
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            />
+            <Button variant="tertiary" size="icon" onClick={fetchLog} disabled={loading} aria-label="Refresh log">
+              <RefreshCw className={loading ? 'animate-spin' : ''} />
+            </Button>
+          </>
+        }
+      />
 
-      {/* Status / workflow bar */}
-      <div className="border border-white/[0.08] bg-white/[0.03] px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3 flex-wrap">
-          <StatusPill status={meta.status} />
-          <span className="text-sm font-mono text-slate-300">{dayLabel}</span>
-          <span className="text-[11px] font-mono text-slate-600">{staffCount} staff assigned</span>
-          {isApproved && meta.approvedBy && (
-            <span className="text-[11px] font-mono text-slate-500">
-              Approved by {meta.approvedBy} · {formatStamp(meta.approvedAt)}
-            </span>
-          )}
-          {dirty && <span className="text-[11px] font-mono text-amber-400">Unsaved changes</span>}
-          {!dirty && meta.updatedAt && (
-            <span className="text-[11px] font-mono text-slate-600">
-              Last saved by {meta.updatedBy} · {formatStamp(meta.updatedAt)}
-            </span>
+      {/* ── Workflow bar — status on the left, actions on the right ──────────── */}
+      <div className="surface-card flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <StatusPill status={meta.status} />
+            {isApproved && meta.approvedBy && (
+              <span className="text-xs text-white/40">
+                Approved by {meta.approvedBy} · {formatStamp(meta.approvedAt)}
+              </span>
+            )}
+            {!dirty && meta.updatedAt && (
+              <span className="text-xs text-white/30">
+                Last saved by {meta.updatedBy} · {formatStamp(meta.updatedAt)}
+              </span>
+            )}
+          </div>
+          {stateHint && (
+            <p className={`text-[13px] ${dirty ? 'text-amber-300/90' : 'text-white/40'}`}>{stateHint}</p>
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {!isApproved && (
-            <button onClick={loadPlan} disabled={loadingPlan}
-              title="Merge the department supervisor's plan for this day into the log"
-              className="border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm text-blue-300 hover:bg-blue-500/20 disabled:opacity-40 transition-colors flex items-center gap-2 font-mono">
-              <Download className="w-3.5 h-3.5" />
-              {loadingPlan ? 'Loading…' : 'Load plan'}
-            </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {!isApproved && !showStarter && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={loadPlan}
+                disabled={loadingPlan}
+                title="Merge the department supervisor's plan for this day into the log"
+              >
+                <Download />
+                {loadingPlan ? 'Loading…' : 'Load plan'}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={copyPrev} title="Copy the previous day's log as a starting point">
+                <Copy /> Copy yesterday
+              </Button>
+            </>
           )}
-          {!isApproved && (
-            <button onClick={copyPrev} title="Copy previous day as starting point"
-              className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-2 font-mono">
-              <Copy className="w-3.5 h-3.5" /> Copy prev
-            </button>
-          )}
-          <button onClick={() => persist('save')} disabled={saving || !dirty}
-            className={`border px-4 py-2 text-sm disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-mono ${
-              isApproved
-                ? 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
-                : 'border-white/10 bg-slate-900/80 text-slate-300 hover:text-white'
-            }`}>
-            <Save className="w-3.5 h-3.5" />
+          <Button
+            variant={nextStep === 'save' ? 'primary' : 'tertiary'}
+            onClick={() => persist('save')}
+            disabled={saving || !dirty}
+          >
+            <Save />
             {saving ? 'Saving…' : flash ? 'Saved ✓' : isApproved ? 'Save amendment' : 'Save draft'}
-          </button>
+          </Button>
           {!isApproved && (
-            <button onClick={approve} disabled={saving || loading}
+            <Button
+              variant={nextStep === 'approve' ? 'primary' : 'secondary'}
+              onClick={approve}
+              disabled={saving || loading}
               title="Lock the log and enable printing"
-              className="border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-30 transition-colors flex items-center gap-2 font-mono">
-              <Lock className="w-3.5 h-3.5" /> Approve &amp; lock
-            </button>
+            >
+              <Lock /> Approve &amp; lock
+            </Button>
           )}
-          <button onClick={printLog} disabled={loading || !isApproved || dirty}
+          <Button
+            variant={nextStep === 'print' ? 'primary' : 'tertiary'}
+            onClick={printLog}
+            disabled={loading || !isApproved || dirty}
             title={!isApproved ? 'The log must be approved before it can be printed' : dirty ? 'Save your changes before printing' : 'Print or save as PDF (A4)'}
-            className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-mono">
-            <Printer className="w-3.5 h-3.5" /> Print
-          </button>
+          >
+            <Printer /> Print
+          </Button>
         </div>
       </div>
 
-      {/* Plan load banner */}
+      {/* ── Banners ───────────────────────────────────────────────────────────── */}
       {planBanner && (
-        <div className="border border-blue-500/20 bg-blue-500/5 px-4 py-2.5 text-[11px] font-mono text-blue-300/90 -mt-3 flex items-center justify-between">
-          <span>{planBanner}</span>
-          <button onClick={() => setPlanBanner(null)} className="text-blue-400/50 hover:text-blue-300 ml-4">✕</button>
-        </div>
+        <StatusBanner variant="info" onDismiss={() => setPlanBanner(null)}>{planBanner}</StatusBanner>
       )}
-
-      {/* Amendment notice */}
-      {isApproved && (
-        <div className="border border-amber-500/20 bg-amber-500/5 px-4 py-2.5 text-[11px] font-mono text-amber-300/90 -mt-3">
-          This log is approved and locked. You can still make changes during the day — every change is recorded
-          in the history below with who changed it, when, and what it was before.
-        </div>
-      )}
-
-      {error && (
-        <div className="border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm font-mono text-red-400">{error}</div>
-      )}
+      {error && <StatusBanner variant="error">{error}</StatusBanner>}
 
       {loading ? (
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="border border-white/[0.08] bg-white/[0.03] p-4 h-24 animate-pulse" />
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-white/[0.045]" />
           ))}
         </div>
       ) : (
         <div className="space-y-4">
 
-          {/* Column headers */}
-          <div className="grid gap-1 px-px sticky top-0 z-10 bg-slate-950/95 backdrop-blur py-2 -my-2"
-            style={{ gridTemplateColumns: '1.3fr 1fr 0.55fr 0.7fr 0.7fr 0.7fr 1.6fr 1.2fr auto' }}>
-            {['Name', 'Shift', 'Breaks', '1st 15', '30 min', '2nd 15', 'Duties', 'Cover / Extra', ''].map((h, i) => (
-              <span key={i} className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-600 px-2">{h}</span>
+          {/* ── Starter — a fresh log offers its two natural starting points ──── */}
+          {showStarter && (
+            <div className="surface-card flex flex-col items-start gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-headline text-white/85">Start today&apos;s log</h2>
+                <p className="mt-0.5 text-callout text-white/45">
+                  Pull in the department plan, copy yesterday&apos;s roster, or fill in the sections below.
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <Button variant="secondary" onClick={loadPlan} disabled={loadingPlan}>
+                  <Download />
+                  {loadingPlan ? 'Loading…' : 'Load department plan'}
+                </Button>
+                <Button variant="tertiary" onClick={copyPrev}>
+                  <Copy /> Copy yesterday
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Column headers — aligned with section body padding ────────────── */}
+          <div
+            aria-hidden="true"
+            className="hidden sm:grid gap-1 px-3 sticky top-0 z-10 bg-[oklch(0.14_0.012_255)]/95 backdrop-blur-sm py-2 -my-2"
+            style={{ gridTemplateColumns: GRID_COLS }}
+          >
+            {['Name', 'Shift', 'Break', '1st 15', '30 min', '2nd 15', 'Duties', 'Cover / extra'].map(h => (
+              <span key={h} className="px-2 text-[11px] font-medium uppercase tracking-[0.1em] text-white/30">{h}</span>
             ))}
+            <span className="w-8" />
           </div>
 
-          {/* Sections */}
-          {log.sections.map(section => (
-            <section key={section.id} className="border border-white/[0.08] bg-white/[0.03]">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]">
-                <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-400">{section.title}</span>
-                <button onClick={() => updateSection(section.id, [...section.rows, emptyRow()])}
-                  className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-slate-600 hover:text-slate-300 transition-colors">
-                  <Plus className="w-3 h-3" /> Add row
-                </button>
-              </div>
-              <div className="p-3 space-y-1.5">
-                {section.rows.length === 0
-                  ? <p className="text-[11px] font-mono text-slate-600 italic px-2 py-1">No staff assigned</p>
-                  : section.rows.map((row, i) => (
-                    <OpsRowEditor
-                      key={i}
-                      row={row}
-                      onChange={updated => updateSection(section.id, section.rows.map((r, j) => j === i ? updated : r))}
-                      onRemove={() => updateSection(section.id, section.rows.filter((_, j) => j !== i))}
-                    />
-                  ))}
-              </div>
-            </section>
-          ))}
+          {/* ── Sections ───────────────────────────────────────────────────────── */}
+          {log.sections.map(section => {
+            const sectionStaff = section.rows.filter(r => r.name.trim()).length
+            return (
+              <section key={section.id} className="surface-card">
+                <div className="hairline-b flex items-center justify-between px-4 py-2.5">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-white/50">
+                    {section.title}
+                    {sectionStaff > 0 && <span className="ml-2 font-normal normal-case tracking-normal text-white/30">{sectionStaff} staff</span>}
+                  </h2>
+                  <Button variant="ghost" size="xs" onClick={() => updateSection(section.id, [...section.rows, emptyRow()])} aria-label={`Add staff row to ${section.title}`}>
+                    <Plus /> Add row
+                  </Button>
+                </div>
+                {/* Horizontal scroll on narrow screens; columns align because min-w forces full width */}
+                <div className="overflow-x-auto">
+                  <div className="min-w-[700px] space-y-1.5 p-3">
+                    {section.rows.length === 0
+                      ? <p className="px-2 py-1 text-xs italic text-white/30">No staff assigned</p>
+                      : section.rows.map((row, i) => (
+                        <OpsRowEditor
+                          key={i}
+                          row={row}
+                          onChange={updated => updateSection(section.id, section.rows.map((r, j) => j === i ? updated : r))}
+                          onRemove={() => updateSection(section.id, section.rows.filter((_, j) => j !== i))}
+                        />
+                      ))}
+                  </div>
+                </div>
+              </section>
+            )
+          })}
 
-          {/* Bookings */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          {/* ── Bookings ───────────────────────────────────────────────────────── */}
+          <div className="grid grid-cols-1 gap-4 pt-1 md:grid-cols-2">
             {([
               { key: 'poolBookings', label: 'Pool bookings' },
               { key: 'gymBookings',  label: 'Gym bookings' },
             ] as const).map(({ key, label }) => (
-              <section key={key} className="border border-white/[0.08] bg-white/[0.03]">
-                <div className="px-4 py-2.5 border-b border-white/[0.06]">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-400">{label}</span>
+              <section key={key} className="surface-card">
+                <div className="hairline-b px-4 py-2.5">
+                  <label htmlFor={`booking-${key}`} className="text-xs font-semibold uppercase tracking-wider text-white/50">{label}</label>
                 </div>
                 <div className="p-3">
                   <textarea
+                    id={`booking-${key}`}
                     value={log[key]}
                     onChange={e => { setLog(l => ({ ...l, [key]: e.target.value })); setDirty(true) }}
                     rows={3}
                     placeholder={key === 'poolBookings' ? 'School 11:00–11:45, party bookings…' : 'Inductions, classes…'}
-                    className="w-full border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/20 font-mono resize-y"
+                    className="w-full resize-y rounded-lg border border-white/10 bg-slate-900/80 px-3 py-2 font-mono text-sm text-white placeholder:text-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                   />
                 </div>
               </section>
             ))}
           </div>
 
-          {/* Change history */}
+          {/* ── Change history ─────────────────────────────────────────────────── */}
           {changes.length > 0 && (
-            <section className="border border-white/[0.08] bg-white/[0.03]">
-              <button onClick={() => setHistoryOpen(o => !o)}
-                className="w-full flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] text-left">
-                <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-400 flex items-center gap-2">
-                  <History className="w-3.5 h-3.5" /> Change history · {changes.length} amendment{changes.length === 1 ? '' : 's'}
+            <section className="surface-card">
+              <button
+                onClick={() => setHistoryOpen(o => !o)}
+                aria-expanded={historyOpen}
+                className={`flex w-full items-center justify-between rounded-t-2xl px-4 py-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${historyOpen ? 'hairline-b' : 'rounded-b-2xl'}`}
+              >
+                <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/50">
+                  <History className="size-3.5" /> Change history · {changes.length} amendment{changes.length === 1 ? '' : 's'}
                 </span>
-                {historyOpen ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                {historyOpen ? <ChevronUp className="size-4 text-white/40" /> : <ChevronDown className="size-4 text-white/40" />}
               </button>
               {historyOpen && (
-                <div className="p-3 overflow-x-auto">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto p-3">
+                  <table className="w-full min-w-[600px] text-sm">
                     <thead>
                       <tr className="text-left">
                         {['Time', 'By', 'Section', 'Staff', 'Field', 'Was', 'Now'].map(h => (
-                          <th key={h} className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-600 px-2 py-1.5 font-normal">{h}</th>
+                          <th key={h} className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/30">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {changes.map((c, i) => (
                         <tr key={i} className="border-t border-white/[0.05]">
-                          <td className="px-2 py-1.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{formatStamp(c.changed_at)}</td>
-                          <td className="px-2 py-1.5 text-slate-300 whitespace-nowrap">{c.changed_by}</td>
-                          <td className="px-2 py-1.5 text-slate-400 whitespace-nowrap">{c.section}</td>
-                          <td className="px-2 py-1.5 text-slate-300 whitespace-nowrap">{c.staff_name}</td>
-                          <td className="px-2 py-1.5 text-slate-400 whitespace-nowrap">{c.field}</td>
-                          <td className="px-2 py-1.5 font-mono text-[11px] text-red-300/80">{c.old_value}</td>
-                          <td className="px-2 py-1.5 font-mono text-[11px] text-emerald-300/80">{c.new_value}</td>
+                          <td className="whitespace-nowrap px-2 py-2 font-mono text-xs text-white/40">{formatStamp(c.changed_at)}</td>
+                          <td className="whitespace-nowrap px-2 py-2 text-sm text-white/70">{c.changed_by}</td>
+                          <td className="whitespace-nowrap px-2 py-2 text-sm text-white/50">{c.section}</td>
+                          <td className="whitespace-nowrap px-2 py-2 text-sm text-white/70">{c.staff_name}</td>
+                          <td className="whitespace-nowrap px-2 py-2 text-sm text-white/50">{c.field}</td>
+                          <td className="px-2 py-2 font-mono text-xs text-red-300/80">{c.old_value}</td>
+                          <td className="px-2 py-2 font-mono text-xs text-emerald-300/80">{c.new_value}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, BarChart3 } from 'lucide-react'
+import { LoadingState } from '@/components/ui/loading-state'
+import { EmptyState } from '@/components/ui/empty-state'
 
 interface TrailScore {
   id: number
@@ -18,10 +20,12 @@ function scoreColour(v: number) {
 }
 
 function scorePill(v: number) {
-  if (v >= 90) return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-  if (v >= 70) return 'border-amber-500/30   bg-amber-500/10   text-amber-300'
-  return          'border-red-500/30    bg-red-500/10    text-red-300'
+  if (v >= 90) return 'bg-emerald-500/15 text-emerald-300'
+  if (v >= 70) return 'bg-amber-500/15 text-amber-300'
+  return 'bg-red-500/15 text-red-300'
 }
+
+const controlCls = 'h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40'
 
 export default function ScoresPage() {
   const [scores, setScores] = useState<TrailScore[]>([])
@@ -58,25 +62,21 @@ export default function ScoresPage() {
     <div className="space-y-6">
 
       {/* ── Header ─────────────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Operations console</div>
-          <h1 className="text-3xl font-light text-white">Site scores</h1>
-        </div>
-        <div className="flex items-center gap-2 pt-1">
-          <select
-            value={days}
-            onChange={e => setDays(Number(e.target.value))}
-            className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-white/20"
-          >
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <h1 className="text-title">Site Scores</h1>
+        <div className="flex items-center gap-2 flex-wrap">
+          <label htmlFor="scores-range" className="sr-only">Date range</label>
+          <select id="scores-range" value={days} onChange={e => setDays(Number(e.target.value))} className={controlCls}>
             <option value={7}>Last 7 days</option>
             <option value={30}>Last 30 days</option>
             <option value={90}>Last 90 days</option>
           </select>
+          <label htmlFor="scores-interval" className="sr-only">Interval</label>
           <select
+            id="scores-interval"
             value={interval}
             onChange={e => setInterval_(e.target.value as 'day' | 'week' | 'month')}
-            className="border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-white/20"
+            className={controlCls}
           >
             <option value="day">Daily</option>
             <option value="week">Weekly</option>
@@ -85,71 +85,67 @@ export default function ScoresPage() {
           <button
             onClick={fetchData}
             disabled={loading}
-            className="border border-white/10 bg-slate-900/80 p-2 text-slate-400 hover:text-white disabled:opacity-40 transition-colors"
+            aria-label="Refresh scores"
+            className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 text-white/50 hover:text-white disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-mono text-red-400">
+        <div role="alert" aria-live="polite" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">
           {error}
         </div>
       )}
 
       {/* ── KPI strip ──────────────────────────────────────────────────────────── */}
       {scores.length > 0 && avg !== null && (
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Overview</div>
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'Sites tracked',  value: String(scores.length) },
-              { label: 'Average score',  value: `${avg.toFixed(1)}%` },
-              { label: 'Data points',    value: String(scores.reduce((s, x) => s + Object.keys(x.scores).length, 0)) },
-            ].map(({ label, value }) => (
-              <article key={label} className="border border-white/[0.08] bg-white/[0.03] p-4">
-                <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500 mb-2">{label}</div>
-                <div className={`font-mono text-3xl font-light ${avg !== null && label === 'Average score' ? scoreColour(avg) : 'text-white'}`}>{value}</div>
-              </article>
-            ))}
-          </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[
+            { label: 'Sites tracked',  value: String(scores.length) },
+            { label: 'Average score',  value: `${avg.toFixed(1)}%` },
+            { label: 'Data points',    value: String(scores.reduce((s, x) => s + Object.keys(x.scores).length, 0)) },
+          ].map(({ label, value }) => (
+            <article key={label} className="surface-card p-4">
+              <div className="text-caption text-white/40">{label}</div>
+              <div className={`mt-1.5 font-mono text-3xl font-light ${avg !== null && label === 'Average score' ? scoreColour(avg) : 'text-white'}`}>{value}</div>
+            </article>
+          ))}
         </div>
       )}
 
       {/* ── Score cards ────────────────────────────────────────────────────────── */}
-      <div>
-        <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Scores</div>
-
-        {loading && scores.length === 0 ? (
-          <div className="border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm font-mono text-slate-500">
-            Loading…
-          </div>
-        ) : scores.length === 0 ? (
-          <div className="border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm font-mono text-slate-500">
-            No score data available
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {scores.map(score => (
-              <article key={score.id} className="border border-white/[0.08] bg-white/[0.03] p-4">
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <span className="text-sm text-white font-medium leading-snug">{score.name}</span>
-                  <span className={`inline-block border px-2 py-0.5 text-[10px] font-mono tracking-widest uppercase whitespace-nowrap shrink-0 ${scorePill(score.average)}`}>
-                    {score.level}
-                  </span>
-                </div>
-                <div className={`font-mono text-4xl font-light ${scoreColour(score.average)}`}>
-                  {score.average.toFixed(1)}%
-                </div>
-                <div className="mt-2 text-[10px] font-mono text-slate-500">
-                  {Object.keys(score.scores).length} data points
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </div>
+      {loading && scores.length === 0 ? (
+        <LoadingState label="Loading scores…" />
+      ) : scores.length === 0 ? (
+        <div className="surface-card">
+          <EmptyState
+            icon={BarChart3}
+            title="No score data"
+            description="No score data is available for the selected period."
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {scores.map(score => (
+            <article key={score.id} className="surface-card p-4">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <span className="text-sm font-medium leading-snug text-white">{score.name}</span>
+                <span className={`inline-flex h-6 shrink-0 items-center rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${scorePill(score.average)}`}>
+                  {score.level}
+                </span>
+              </div>
+              <div className={`font-mono text-4xl font-light ${scoreColour(score.average)}`}>
+                {score.average.toFixed(1)}%
+              </div>
+              <div className="mt-2 text-caption text-white/35">
+                {Object.keys(score.scores).length} data points
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
 
     </div>
   )

@@ -132,6 +132,8 @@ async function initSchema(sql: Sql) {
       UNIQUE(site_id, plan_date)
     )`)
 
+
+
   await seedInitialData(sql)
 }
 
@@ -176,4 +178,5 @@ async function seedInitialData(sql: Sql) {
   for (const [key, value] of settings) {
     await sql`INSERT INTO system_settings (key, value) VALUES (${key}, ${value}) ON CONFLICT (key) DO NOTHING`
   }
+
 }

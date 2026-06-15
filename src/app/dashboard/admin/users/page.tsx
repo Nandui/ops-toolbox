@@ -3,6 +3,7 @@
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useState, useEffect } from 'react'
 import { ROLE_LABELS } from '@/lib/portal'
+import { LoadingState } from '@/components/ui/loading-state'
 
 interface UserInfo {
   id: number
@@ -30,7 +31,7 @@ export default function UsersPage() {
 
   if (!user || !isAdmin) {
     return (
-      <div className="border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-mono text-red-400">
+      <div role="alert" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">
         Access denied
       </div>
     )
@@ -40,44 +41,35 @@ export default function UsersPage() {
     <div className="space-y-6">
 
       {/* ── Header ─────────────────────────────────────────────────────────────── */}
-      <div>
-        <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-1">Admin console</div>
-        <h1 className="text-3xl font-light text-white">User management</h1>
-      </div>
+      <h1 className="text-title">Users</h1>
 
       {/* ── KPI strip ──────────────────────────────────────────────────────────── */}
       {!loading && (
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Overview</div>
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'Total users',  value: users.length },
-              { label: 'Active',       value: users.filter(u => u.active).length },
-              { label: 'Inactive',     value: users.filter(u => !u.active).length },
-            ].map(({ label, value }) => (
-              <article key={label} className="border border-white/[0.08] bg-white/[0.03] p-4">
-                <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500 mb-2">{label}</div>
-                <div className="font-mono text-3xl font-light text-white">{value}</div>
-              </article>
-            ))}
-          </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[
+            { label: 'Total users',  value: users.length },
+            { label: 'Active',       value: users.filter(u => u.active).length },
+            { label: 'Inactive',     value: users.filter(u => !u.active).length },
+          ].map(({ label, value }) => (
+            <article key={label} className="surface-card p-4">
+              <div className="text-caption text-white/40">{label}</div>
+              <div className="mt-1.5 font-mono text-3xl font-light text-white">{value}</div>
+            </article>
+          ))}
         </div>
       )}
 
       {/* ── Users table ────────────────────────────────────────────────────────── */}
-      <div>
-        <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 mb-2">Users</div>
-        {loading ? (
-          <div className="border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm font-mono text-slate-500">
-            Loading…
-          </div>
-        ) : (
-          <article className="border border-white/[0.08] bg-white/[0.03] overflow-hidden">
-            <table className="w-full text-sm">
+      {loading ? (
+        <LoadingState label="Loading users…" />
+      ) : (
+        <article className="surface-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px] text-sm">
               <thead>
                 <tr className="border-b border-white/[0.08]">
                   {['Name', 'Email', 'Role', 'Status', 'Last login'].map(h => (
-                    <th key={h} className="text-left px-4 py-2.5 text-[10px] font-mono uppercase tracking-wider text-slate-500 font-normal">
+                    <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/35">
                       {h}
                     </th>
                   ))}
@@ -85,31 +77,31 @@ export default function UsersPage() {
               </thead>
               <tbody>
                 {users.map(u => (
-                  <tr key={u.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-3 text-white text-sm">{u.name}</td>
-                    <td className="px-4 py-3 text-slate-400 text-[11px] font-mono">{u.email}</td>
-                    <td className="px-4 py-3 text-[11px] font-mono text-slate-400">
+                  <tr key={u.id} className="border-b border-white/[0.04] transition-colors last:border-0 hover:bg-white/[0.02]">
+                    <td className="px-4 py-3 text-sm text-white">{u.name}</td>
+                    <td className="px-4 py-3 text-xs font-mono text-white/50">{u.email}</td>
+                    <td className="px-4 py-3 text-xs text-white/55">
                       {ROLE_LABELS[u.role as keyof typeof ROLE_LABELS] || u.role}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-block border px-2 py-0.5 text-[10px] font-mono tracking-widest uppercase whitespace-nowrap ${
+                      <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${
                         u.active
-                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                          : 'border-white/10 bg-white/[0.03] text-slate-500'
+                          ? 'bg-emerald-500/15 text-emerald-300'
+                          : 'bg-white/[0.08] text-white/45'
                       }`}>
                         {u.active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-[11px] font-mono text-slate-500">
+                    <td className="px-4 py-3 text-xs font-mono text-white/40">
                       {u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('en-IE') : '—'}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </article>
-        )}
-      </div>
+          </div>
+        </article>
+      )}
 
     </div>
   )
