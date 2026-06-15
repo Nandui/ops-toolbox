@@ -132,6 +132,31 @@ async function initSchema(sql: Sql) {
       UNIQUE(site_id, plan_date)
     )`)
 
+  await sql.query(`
+    CREATE TABLE IF NOT EXISTS suppliers (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`)
+
+  await sql.query(`
+    CREATE TABLE IF NOT EXISTS po_sequences (
+      site_code TEXT PRIMARY KEY,
+      last_number INTEGER NOT NULL DEFAULT 0
+    )`)
+
+  await sql.query(`
+    CREATE TABLE IF NOT EXISTS po_files (
+      id SERIAL PRIMARY KEY,
+      notion_page_id TEXT NOT NULL UNIQUE,
+      filename TEXT NOT NULL,
+      content_type TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      data TEXT NOT NULL,
+      uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`)
+
   await seedInitialData(sql)
 }
 
@@ -176,4 +201,6 @@ async function seedInitialData(sql: Sql) {
   for (const [key, value] of settings) {
     await sql`INSERT INTO system_settings (key, value) VALUES (${key}, ${value}) ON CONFLICT (key) DO NOTHING`
   }
+
+  await sql`INSERT INTO po_sequences (site_code, last_number) VALUES ('BT', 0), ('CF', 0) ON CONFLICT (site_code) DO NOTHING`
 }
