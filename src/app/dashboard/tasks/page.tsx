@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, CheckCircle, Clock, AlertTriangle, CheckSquare, ExternalLink, XCircle, Minus, ShieldCheck } from 'lucide-react'
+import { RefreshCw, CheckCircle, Clock, AlertTriangle, CheckSquare, XCircle, Minus } from 'lucide-react'
 import { SITES } from '@/lib/portal'
 import { Button } from '@/components/ui/button'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -141,25 +141,6 @@ export default function TasksPage() {
       </div>
 
       {error && <StatusBanner variant="error">{error}</StatusBanner>}
-
-      {/* ── Pending approval shortcut ─────────────────────────────────────────── */}
-      <div className="surface-card flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3">
-        <div className="flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 size-5 shrink-0 text-amber-300" />
-          <div>
-            <p className="text-sm text-white">Tasks pending approval</p>
-            <p className="mt-0.5 text-[13px] text-white/45">Approval is managed in Trail — open Trail to review and sign off tasks.</p>
-          </div>
-        </div>
-        <a
-          href="https://web.trailapp.com/reports#/tasks?approval=pending_approval"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[10px] bg-amber-500/15 px-3 text-[13px] font-medium text-amber-300 transition-colors hover:bg-amber-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-        >
-          Open in Trail <ExternalLink className="size-3.5" />
-        </a>
-      </div>
 
       {/* ── KPI strip ──────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
