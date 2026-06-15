@@ -252,3 +252,24 @@
 @utility stagger-3 { animation-delay: 180ms; }
 @utility stagger-4 { animation-delay: 240ms; }
 @utility stagger-5 { animation-delay: 300ms; }
+
+/* ── Status pill glow pulses ──────────────────────────────────────────────
+ * Attention states pulse; calm states (ok, live) stay still.
+ * Critical is fastest (most urgent); warning and aged are slower.
+ */
+@keyframes lw-pill-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0); }
+  50%       { box-shadow: 0 0 0 4px rgb(239 68 68 / 0.25); }
+}
+@keyframes lw-pill-amber {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(251 191 36 / 0); }
+  50%       { box-shadow: 0 0 0 4px rgb(251 191 36 / 0.2); }
+}
+@keyframes lw-pill-orange {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(249 115 22 / 0); }
+  50%       { box-shadow: 0 0 0 4px rgb(249 115 22 / 0.18); }
+}
+
+@utility pill-pulse-critical { animation: lw-pill-red    1.8s ease-in-out infinite; }
+@utility pill-pulse-warning  { animation: lw-pill-amber  2.6s ease-in-out infinite; }
+@utility pill-pulse-aged     { animation: lw-pill-orange 2.6s ease-in-out infinite; }
