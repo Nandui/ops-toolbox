@@ -45,9 +45,10 @@ export async function fetchTaskInstances(
   startDate: string,
   endDate: string,
   taskTemplateIds: number[],
-  pageStart?: string
+  pageStart?: string,
+  extraFilters?: Record<string, unknown>
 ): Promise<{ data: TrailTaskInstance[]; nextCursor: string | null }> {
-  const body: Record<string, unknown> = { startDate, endDate, taskTemplateIds }
+  const body: Record<string, unknown> = { startDate, endDate, taskTemplateIds, ...extraFilters }
   if (pageStart) body.pageStart = pageStart
 
   const result = await trailFetch('/task_reports/v1/task_instances', {
@@ -63,17 +64,29 @@ export async function fetchTaskInstances(
 export async function fetchAllTaskInstances(
   startDate: string,
   endDate: string,
-  taskTemplateIds: number[]
+  taskTemplateIds: number[],
+  extraFilters?: Record<string, unknown>
 ): Promise<TrailTaskInstance[]> {
   const all: TrailTaskInstance[] = []
   let cursor: string | null = null
   do {
-    const { data, nextCursor } = await fetchTaskInstances(startDate, endDate, taskTemplateIds, cursor ?? undefined)
+    const { data, nextCursor } = await fetchTaskInstances(startDate, endDate, taskTemplateIds, cursor ?? undefined, extraFilters)
     all.push(...data)
     cursor = nextCursor
     if (cursor) await sleep(300) // gentle rate limiting
   } while (cursor)
   return all
+}
+
+// Fetch tasks in "Pending Approval" state using Trail's approval filter.
+// The web UI uses approval=pending_approval in its hash URL, which appears
+// to correspond to an `approval` filter on the task_instances endpoint.
+export async function fetchPendingApprovalInstances(
+  startDate: string,
+  endDate: string,
+  taskTemplateIds: number[]
+): Promise<TrailTaskInstance[]> {
+  return fetchAllTaskInstances(startDate, endDate, taskTemplateIds, { approval: 'pending_approval' })
 }
 
 export async function fetchRecordLogs(taskInstanceIds: number[]): Promise<Record<string, TrailRecordLog[]>> {
