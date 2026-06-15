@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { CheckCircle, XCircle, MessageSquare, ArrowLeft } from 'lucide-react'
+import { CheckCircle, XCircle, ArrowLeft, Clock } from 'lucide-react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { Button } from '@/components/ui/button'
 import { StatusBanner } from '@/components/ui/status-banner'
@@ -14,7 +14,6 @@ const URGENCIES = ['Routine', 'Urgent', 'Emergency'] as const
 
 type Tab        = 'submit' | 'requests'
 type SiteFilter = 'All' | 'Bishopstown' | 'Churchfield'
-type StatusFilter = 'All' | 'Pending Review' | 'Approved' | 'Rejected'
 
 const STATUS_BADGE: Record<PoStatus, { label: string; cls: string }> = {
   'Pending Review': { label: 'Pending',  cls: 'bg-amber-500/15 text-amber-300'    },
@@ -307,33 +306,29 @@ function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
   )
 }
 
-// ── Requests List ──────────────────────────────────────────────────────────────
+// ── Order Status List ──────────────────────────────────────────────────────────
 
-function RequestsList({ pos, loading, isAdmin, onReview }: {
+function OrderStatusList({ pos, loading, isAdmin, onReview }: {
   pos: PoRequest[]
   loading: boolean
   isAdmin: boolean
   onReview: (po: PoRequest) => void
 }) {
   const { user } = useAuth()
-  const [siteFilter, setSiteFilter]     = useState<SiteFilter>('All')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('All')
+  const [siteFilter, setSiteFilter] = useState<SiteFilter>('All')
 
-  const filtered = pos
-    .filter(p => siteFilter === 'All' || p.site === siteFilter)
-    .filter(p => statusFilter === 'All' || p.status === statusFilter)
-
+  const filtered = siteFilter === 'All' ? pos : pos.filter(p => p.site === siteFilter)
   const pending  = pos.filter(p => p.status === 'Pending Review')
   const approved = pos.filter(p => p.status === 'Approved')
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* KPI strip */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Total',    value: pos.length,       cls: 'text-white'        },
-          { label: 'Pending',  value: pending.length,   cls: pending.length > 0 ? 'text-amber-300' : 'text-white/60' },
-          { label: 'Approved', value: approved.length,  cls: 'text-emerald-300'  },
+          { label: 'Total',    value: pos.length,      cls: 'text-white'       },
+          { label: 'Pending',  value: pending.length,  cls: pending.length > 0 ? 'text-amber-300' : 'text-white/60' },
+          { label: 'Approved', value: approved.length, cls: 'text-emerald-300' },
         ].map(({ label, value, cls }) => (
           <article key={label} className="surface-card p-4">
             <div className="text-caption text-white/40">{label}</div>
@@ -342,89 +337,100 @@ function RequestsList({ pos, loading, isAdmin, onReview }: {
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="inline-flex rounded-xl bg-white/[0.06] p-1">
-          {(['All', 'Bishopstown', 'Churchfield'] as SiteFilter[]).map(s => (
-            <button
-              key={s} onClick={() => setSiteFilter(s)}
-              className={`rounded-lg px-3 py-1.5 text-[13px] transition-colors ${
-                siteFilter === s ? 'bg-white/[0.12] font-medium text-white' : 'text-white/50 hover:text-white/80'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-        <div className="inline-flex rounded-xl bg-white/[0.06] p-1">
-          {(['All', 'Pending Review', 'Approved', 'Rejected'] as StatusFilter[]).map(s => (
-            <button
-              key={s} onClick={() => setStatusFilter(s)}
-              className={`rounded-lg px-3 py-1.5 text-[13px] transition-colors ${
-                statusFilter === s ? 'bg-white/[0.12] font-medium text-white' : 'text-white/50 hover:text-white/80'
-              }`}
-            >
-              {s === 'Pending Review' ? 'Pending' : s}
-            </button>
-          ))}
-        </div>
+      {/* Site filter */}
+      <div className="inline-flex rounded-xl bg-white/[0.06] p-1">
+        {(['All', 'Bishopstown', 'Churchfield'] as SiteFilter[]).map(s => (
+          <button
+            key={s} onClick={() => setSiteFilter(s)}
+            className={`rounded-lg px-3 py-1.5 text-[13px] transition-colors ${
+              siteFilter === s ? 'bg-white/[0.12] font-medium text-white' : 'text-white/50 hover:text-white/80'
+            }`}
+          >
+            {s}
+          </button>
+        ))}
       </div>
 
-      {/* List */}
+      {/* Cards */}
       {loading ? (
         <div className="py-10 text-center text-sm text-white/30">Loading…</div>
       ) : filtered.length === 0 ? (
-        <div className="surface-card py-10 text-center text-sm text-white/30">No requests found.</div>
+        <div className="surface-card py-10 text-center text-sm text-white/30">No requests yet.</div>
       ) : (
-        <div className="space-y-1.5">
+        <div className="space-y-3">
           {filtered.map(po => {
-            const badge    = STATUS_BADGE[po.status] ?? { label: po.status, cls: 'bg-white/10 text-white/50' }
             const urgBadge = URGENCY_CLS[po.urgency] ?? 'bg-white/10 text-white/50'
-            const canReview = isAdmin && po.status === 'Pending Review'
+            const isApproved = po.status === 'Approved'
+            const isPending  = po.status === 'Pending Review'
+            const isRejected = po.status === 'Rejected'
+
             return (
               <article
                 key={po.id}
-                className={`surface-card flex flex-wrap items-center gap-4 px-4 py-3 ${
-                  po.status === 'Pending Review' ? 'ring-1 ring-inset ring-amber-500/20' : ''
+                className={`surface-card overflow-hidden rounded-2xl ${
+                  isApproved ? 'ring-1 ring-inset ring-emerald-500/25' :
+                  isPending  ? 'ring-1 ring-inset ring-amber-500/20'   : ''
                 }`}
               >
-                {/* PO number if approved */}
-                <span className="w-28 shrink-0 font-mono text-[11px] text-white/30">
-                  {po.poNumber ?? '—'}
-                </span>
+                {/* Approved: PO number banner */}
+                {isApproved && po.poNumber && (
+                  <div className="flex items-center gap-3 border-b border-emerald-500/15 bg-emerald-500/8 px-4 py-2.5">
+                    <CheckCircle className="size-4 shrink-0 text-emerald-400" />
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-emerald-400/70">PO Number</span>
+                    <span className="font-mono text-base font-semibold tracking-wider text-emerald-300">
+                      {po.poNumber}
+                    </span>
+                  </div>
+                )}
 
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-white">{po.description}</p>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-white/40">
-                    <span>{po.supplier}</span>
-                    <span className="text-white/20">·</span>
-                    <span>{po.site}</span>
-                    <span className="text-white/20">·</span>
-                    <span>{fmtDate(po.requestDate ?? po.createdTime)}</span>
-                    {po.requestedBy !== user?.name && (
-                      <><span className="text-white/20">·</span><span>{po.requestedBy}</span></>
+                {/* Pending: awaiting banner */}
+                {isPending && (
+                  <div className="flex items-center gap-3 border-b border-amber-500/15 bg-amber-500/6 px-4 py-2">
+                    <Clock className="size-3.5 shrink-0 text-amber-400/70" />
+                    <span className="text-[12px] text-amber-300/70">Awaiting approval</span>
+                    {isAdmin && (
+                      <Button
+                        variant="secondary" size="xs"
+                        className="ml-auto"
+                        onClick={() => onReview(po)}
+                      >
+                        Review
+                      </Button>
                     )}
                   </div>
-                  {po.adminNotes && (
-                    <p className="mt-1 flex items-center gap-1.5 text-xs text-white/35">
-                      <MessageSquare className="size-3" />{po.adminNotes}
-                    </p>
-                  )}
-                </div>
-
-                <span className="shrink-0 font-mono text-sm text-white/70">{fmtCcy(po.value)}</span>
-                <span className={`flex h-6 shrink-0 items-center rounded-full px-2.5 text-[11px] font-medium ${urgBadge}`}>
-                  {po.urgency}
-                </span>
-                <span className={`flex h-6 shrink-0 items-center rounded-full px-2.5 text-[11px] font-medium ${badge.cls}`}>
-                  {badge.label}
-                </span>
-
-                {canReview && (
-                  <Button variant="secondary" size="xs" onClick={() => onReview(po)}>
-                    Review
-                  </Button>
                 )}
+
+                {/* Rejected: reason banner */}
+                {isRejected && (
+                  <div className="flex items-start gap-3 border-b border-red-500/15 bg-red-500/6 px-4 py-2">
+                    <XCircle className="mt-0.5 size-3.5 shrink-0 text-red-400/70" />
+                    <span className="text-[12px] text-red-300/70">
+                      Rejected{po.adminNotes ? ` — ${po.adminNotes}` : ''}
+                    </span>
+                  </div>
+                )}
+
+                {/* Body */}
+                <div className="flex flex-wrap items-center gap-4 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-white">{po.description}</p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-white/40">
+                      <span>{po.supplier}</span>
+                      <span className="text-white/20">·</span>
+                      <span>{po.site}</span>
+                      <span className="text-white/20">·</span>
+                      <span>{fmtDate(po.requestDate ?? po.createdTime)}</span>
+                      {po.requestedBy !== user?.name && (
+                        <><span className="text-white/20">·</span><span>{po.requestedBy}</span></>
+                      )}
+                    </div>
+                  </div>
+
+                  <span className="shrink-0 font-mono text-sm text-white/70">{fmtCcy(po.value)}</span>
+                  <span className={`flex h-6 shrink-0 items-center rounded-full px-2.5 text-[11px] font-medium ${urgBadge}`}>
+                    {po.urgency}
+                  </span>
+                </div>
               </article>
             )
           })}
@@ -474,7 +480,7 @@ export default function PurchaseOrdersPage() {
       <div role="tablist" className="inline-flex rounded-xl bg-white/[0.06] p-1">
         {([
           ['submit',   'Submit Request'],
-          ['requests', `Requests${pending.length > 0 && isAdmin ? ` (${pending.length} pending)` : ''}`],
+          ['requests', `Order Status${pending.length > 0 && isAdmin ? ` (${pending.length} pending)` : ''}`],
         ] as [Tab, string][]).map(([t, label]) => (
           <button
             key={t} role="tab" aria-selected={tab === t}
@@ -495,7 +501,7 @@ export default function PurchaseOrdersPage() {
       )}
 
       {tab === 'requests' && (
-        <RequestsList
+        <OrderStatusList
           pos={pos}
           loading={loading}
           isAdmin={isAdmin}
