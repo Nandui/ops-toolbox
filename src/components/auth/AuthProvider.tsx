@@ -10,7 +10,8 @@ interface AuthContextType {
   loading: boolean
   logout: () => Promise<void>
   isAdmin: boolean
-  isOpsManager: boolean
+  isDutyManager: boolean
+  isShiftSupervisor: boolean
   canAccessAllSites: boolean
 }
 
@@ -53,12 +54,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = '/login'
   }, [])
 
-  const isAdmin = user?.role === 'admin'
-  const isOpsManager = user?.role === 'operations_manager'
-  const canAccessAllSites = isAdmin || isOpsManager
+  const isAdmin         = user?.role === 'admin'
+  const isDutyManager   = user?.role === 'duty_manager'
+  const isShiftSupervisor = user?.role === 'shift_supervisor'
+  const canAccessAllSites = isAdmin
 
   return (
-    <AuthContext.Provider value={{ user, loading, logout, isAdmin, isOpsManager, canAccessAllSites }}>
+    <AuthContext.Provider value={{ user, loading, logout, isAdmin, isDutyManager, isShiftSupervisor, canAccessAllSites }}>
       {children}
     </AuthContext.Provider>
   )

@@ -9,7 +9,7 @@ export async function GET() {
 
   try {
     const all = await listPoRequests()
-    const pos = session.role === 'admin' || session.role === 'operations_manager'
+    const pos = session.role === 'admin'
       ? all
       : all.filter(p => p.requestedBy === session.name)
     return NextResponse.json({ purchaseOrders: pos })
