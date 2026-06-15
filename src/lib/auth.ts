@@ -132,6 +132,6 @@ export async function loginUser(email: string, password: string): Promise<Sessio
 }
 
 export function getUserSiteIds(user: SessionUser): number[] | null {
-  if (user.role === 'admin' || user.role === 'operations_manager') return null
+  if (user.role === 'admin') return null
   return user.siteIds
 }

@@ -4,13 +4,13 @@
  * Keep shared role labels, site definitions, and display helpers here so the
  * UI, auth layer, and seed data all read from one source of truth.
  */
-export const USER_ROLES = ['admin', 'operations_manager', 'manager'] as const
+export const USER_ROLES = ['admin', 'duty_manager', 'shift_supervisor'] as const
 export type UserRole = (typeof USER_ROLES)[number]
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-  admin: 'Admin',
-  operations_manager: 'Operations Manager',
-  manager: 'Manager',
+  admin:            'Admin',
+  duty_manager:     'Duty Manager',
+  shift_supervisor: 'Shift Supervisor',
 }
 
 export interface SiteDefinition {
