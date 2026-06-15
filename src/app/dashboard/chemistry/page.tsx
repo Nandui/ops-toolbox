@@ -282,8 +282,15 @@ function StatusPill({ level, label }: { level: StatusLevel | 'live' | 'outdated'
       : level === 'aged'
       ? 'bg-orange-500/15 text-orange-300'
       : 'bg-white/[0.08] text-white/60'
+
+  const pulse =
+    level === 'critical'                       ? 'pill-pulse-critical'
+    : level === 'warning' || level === 'outdated' ? 'pill-pulse-warning'
+    : level === 'aged'                            ? 'pill-pulse-aged'
+    : ''
+
   return (
-    <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${cls}`}>
+    <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${cls} ${pulse}`}>
       {label}
     </span>
   )
