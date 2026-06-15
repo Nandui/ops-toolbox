@@ -46,7 +46,7 @@ export default function DashboardPage() {
         <SectionHeader title="Today's workflow" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
-          <div className="surface-card flex flex-col gap-5 p-6">
+          <div className="surface-card flex flex-col gap-5 p-6 transition-transform duration-200 ease-out hover:-translate-y-0.5">
             <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/15">
               <FileText className="size-6 text-primary" />
             </div>
@@ -66,7 +66,7 @@ export default function DashboardPage() {
             </Button>
           </div>
 
-          <div className="surface-card flex flex-col gap-5 p-6">
+          <div className="surface-card flex flex-col gap-5 p-6 transition-transform duration-200 ease-out hover:-translate-y-0.5">
             <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-500/10">
               <ClipboardEdit className="size-6 text-emerald-400/60" />
             </div>
@@ -93,18 +93,19 @@ export default function DashboardPage() {
       <section className="space-y-4">
         <SectionHeader title="Monitoring & reports" />
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          {MONITOR_CARDS.map(card => (
+          {MONITOR_CARDS.map((card, i) => (
             <Link
               key={card.href}
               href={card.href}
-              className="surface-card group flex flex-col gap-3 p-4 transition-colors hover:bg-white/[0.07]"
+              className="surface-card group animate-page flex flex-col gap-3 p-4 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-white/[0.07]"
+              style={{ animationDelay: `${i * 50}ms` }}
             >
-              <card.icon className="size-5 text-white/30 transition-colors group-hover:text-white/50" />
+              <card.icon className="size-5 text-white/30 transition-colors duration-150 group-hover:text-white/60" />
               <div className="flex-1">
                 <div className="text-subhead">{card.label}</div>
                 <div className="mt-0.5 text-caption text-white/40">{card.desc}</div>
               </div>
-              <ArrowRight className="size-3.5 text-white/20 transition-colors group-hover:text-white/40" />
+              <ArrowRight className="size-3.5 text-white/20 transition-all duration-150 group-hover:translate-x-0.5 group-hover:text-white/40" />
             </Link>
           ))}
         </div>

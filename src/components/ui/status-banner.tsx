@@ -49,6 +49,7 @@ function StatusBanner({ variant = "info", children, onDismiss, className }: Stat
       data-slot="status-banner"
       className={cn(
         "flex items-start gap-3 rounded-xl px-5 py-3.5 ring-1 ring-inset",
+        "animate-in fade-in-0 slide-in-from-top-2 duration-200",
         styles.container,
         className
       )}
