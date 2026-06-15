@@ -89,7 +89,7 @@ function ApproveModal({
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center"
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div className="surface-card w-full max-w-lg space-y-5 rounded-2xl p-6">
+      <div className="surface-card animate-scale-in w-full max-w-lg space-y-5 rounded-2xl p-6">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -329,8 +329,8 @@ function OrderStatusList({ pos, loading, isAdmin, onReview }: {
           { label: 'Total',    value: pos.length,      cls: 'text-white'       },
           { label: 'Pending',  value: pending.length,  cls: pending.length > 0 ? 'text-amber-300' : 'text-white/60' },
           { label: 'Approved', value: approved.length, cls: 'text-emerald-300' },
-        ].map(({ label, value, cls }) => (
-          <article key={label} className="surface-card p-4">
+        ].map(({ label, value, cls }, i) => (
+          <article key={label} className={`surface-card animate-page p-4 stagger-${i + 1 as 1 | 2 | 3}`}>
             <div className="text-caption text-white/40">{label}</div>
             <div className={`mt-1 text-2xl font-light ${cls}`}>{loading ? '…' : value}</div>
           </article>
@@ -358,7 +358,7 @@ function OrderStatusList({ pos, loading, isAdmin, onReview }: {
         <div className="surface-card py-10 text-center text-sm text-white/30">No requests yet.</div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(po => {
+          {filtered.map((po, idx) => {
             const urgBadge = URGENCY_CLS[po.urgency] ?? 'bg-white/10 text-white/50'
             const isApproved = po.status === 'Approved'
             const isPending  = po.status === 'Pending Review'
@@ -367,10 +367,11 @@ function OrderStatusList({ pos, loading, isAdmin, onReview }: {
             return (
               <article
                 key={po.id}
-                className={`surface-card overflow-hidden rounded-2xl ${
+                className={`surface-card animate-page overflow-hidden rounded-2xl transition-transform duration-200 ease-out hover:-translate-y-px ${
                   isApproved ? 'ring-1 ring-inset ring-emerald-500/25' :
                   isPending  ? 'ring-1 ring-inset ring-amber-500/20'   : ''
                 }`}
+                style={{ animationDelay: `${Math.min(idx * 50, 250)}ms` }}
               >
                 {/* Approved: PO number banner */}
                 {isApproved && po.poNumber && (

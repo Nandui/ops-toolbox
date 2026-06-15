@@ -1,10 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { AuthProvider, useAuth } from '@/components/auth/AuthProvider'
 import Sidebar from '@/components/shell/Sidebar'
 import TopBar from '@/components/shell/TopBar'
 import { Spinner } from '@/components/ui/loading-state'
+
+function AnimatedPage({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  return (
+    <div key={pathname} className="animate-page">
+      {children}
+    </div>
+  )
+}
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -28,7 +38,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         <TopBar onMenuClick={() => setNavOpen(true)} />
         <main className="flex-1 overflow-y-auto px-5 py-6 md:px-6 lg:px-8 lg:py-8">
           <div className="mx-auto w-full max-w-5xl">
-            {children}
+            <AnimatedPage>{children}</AnimatedPage>
           </div>
         </main>
       </div>
