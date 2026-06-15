@@ -18,7 +18,8 @@ import type { PoRecord, PoStatus } from '@/lib/notion-po'
 
 interface Supplier { id: number; name: string }
 
-type Tab = 'pending' | 'all' | 'approved' | 'suppliers'
+type Tab        = 'pending' | 'all' | 'approved' | 'suppliers'
+type SiteFilter = 'All' | 'Bishopstown' | 'Churchfield'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -266,12 +267,13 @@ export default function PurchaseOrdersPage() {
   const { isAdmin, user } = useAuth()
   const router = useRouter()
 
-  const [pos, setPos]           = useState<PoRecord[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [error, setError]       = useState<string | null>(null)
-  const [tab, setTab]           = useState<Tab>('pending')
+  const [pos, setPos]             = useState<PoRecord[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState<string | null>(null)
+  const [tab, setTab]             = useState<Tab>('pending')
+  const [siteFilter, setSiteFilter] = useState<SiteFilter>('All')
   const [reviewing, setReviewing] = useState<PoRecord | null>(null)
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [feedback, setFeedback]   = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -283,12 +285,13 @@ export default function PurchaseOrdersPage() {
 
   useEffect(() => { load() }, [load])
 
-  const pending  = pos.filter(p => p.status === 'Pending Review')
-  const approved = pos.filter(p => p.status === 'Approved')
+  const sitePos  = siteFilter === 'All' ? pos : pos.filter(p => p.site === siteFilter)
+  const pending  = sitePos.filter(p => p.status === 'Pending Review')
+  const approved = sitePos.filter(p => p.status === 'Approved')
 
   const shown = tab === 'pending'  ? pending
               : tab === 'approved' ? approved
-              : pos
+              : sitePos
 
   function handleReviewDone() {
     setReviewing(null)
@@ -319,12 +322,29 @@ export default function PurchaseOrdersPage() {
       )}
       {error && <StatusBanner variant="error">{error}</StatusBanner>}
 
+      {/* Site filter */}
+      <div className="inline-flex rounded-xl bg-white/[0.06] p-1">
+        {(['All', 'Bishopstown', 'Churchfield'] as SiteFilter[]).map(s => (
+          <button
+            key={s}
+            onClick={() => setSiteFilter(s)}
+            className={`rounded-lg px-3 py-1.5 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+              siteFilter === s
+                ? 'bg-white/[0.12] font-medium text-white shadow-[0_1px_2px_rgb(0_0_0/0.2)]'
+                : 'text-white/50 hover:text-white/80'
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
-          { label: 'Total',     value: pos.length,                          colour: 'text-white'       },
-          { label: 'Pending',   value: pending.length,                      colour: pending.length > 0 ? 'text-amber-300' : 'text-white/60' },
-          { label: 'Approved',  value: approved.length,                     colour: 'text-emerald-300' },
+          { label: 'Total',          value: sitePos.length,                              colour: 'text-white'       },
+          { label: 'Pending',        value: pending.length,                              colour: pending.length > 0 ? 'text-amber-300' : 'text-white/60' },
+          { label: 'Approved',       value: approved.length,                             colour: 'text-emerald-300' },
           { label: 'Approved value', value: fmtCcy(approved.reduce((s, p) => s + p.value, 0)), colour: 'text-white/70' },
         ].map(({ label, value, colour }) => (
           <article key={label} className="surface-card p-4">

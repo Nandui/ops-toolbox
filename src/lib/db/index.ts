@@ -141,9 +141,20 @@ async function initSchema(sql: Sql) {
     )`)
 
   await sql.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'po_sequences')
+      AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'po_sequences' AND column_name = 'year_month') THEN
+        DROP TABLE po_sequences;
+      END IF;
+    END $$`)
+
+  await sql.query(`
     CREATE TABLE IF NOT EXISTS po_sequences (
-      site_code TEXT PRIMARY KEY,
-      last_number INTEGER NOT NULL DEFAULT 0
+      site_code   TEXT    NOT NULL,
+      year_month  TEXT    NOT NULL,
+      last_number INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (site_code, year_month)
     )`)
 
   await sql.query(`
@@ -202,5 +213,5 @@ async function seedInitialData(sql: Sql) {
     await sql`INSERT INTO system_settings (key, value) VALUES (${key}, ${value}) ON CONFLICT (key) DO NOTHING`
   }
 
-  await sql`INSERT INTO po_sequences (site_code, last_number) VALUES ('BT', 0), ('CF', 0) ON CONFLICT (site_code) DO NOTHING`
+  // po_sequences rows are created on-demand per (site_code, year_month) — no seeding needed
 }

@@ -266,13 +266,21 @@ export async function updatePoRequest(id: string, input: UpdatePoInput): Promise
 
 export async function generatePoNumber(site: PoSite): Promise<string> {
   const siteCode = site === 'Bishopstown' ? 'BT' : 'CF'
+  const now = new Date()
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const yy = String(now.getFullYear()).slice(-2)
+  const yearMonth = `${yy}${mm}`
+
   const sql = await getSql()
+  // Atomic upsert — inserts (1) on first PO of the month, increments thereafter
   const rows = await sql`
-    UPDATE po_sequences SET last_number = last_number + 1
-    WHERE site_code = ${siteCode}
+    INSERT INTO po_sequences (site_code, year_month, last_number)
+    VALUES (${siteCode}, ${yearMonth}, 1)
+    ON CONFLICT (site_code, year_month) DO UPDATE
+      SET last_number = po_sequences.last_number + 1
     RETURNING last_number` as { last_number: number }[]
   const n = rows[0].last_number
-  return `LW${siteCode}${String(n).padStart(4, '0')}`
+  return `LW${siteCode}${mm}${yy}${String(n).padStart(4, '0')}`
 }
 
 // ── File storage (Postgres) ────────────────────────────────────────────────────
