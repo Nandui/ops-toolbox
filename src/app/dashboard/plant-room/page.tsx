@@ -40,6 +40,24 @@ const RATE_WINDOW_DAYS = 30
 // An increase above this threshold is a tank refill, not a reading error.
 const REFILL_THRESHOLD_L = 50
 
+// Each task is read twice a day. A reading taken between 06:00 and 15:30 is the
+// day's OPENING stock; anything after that until 23:00 is the CLOSING stock.
+// Chlorine is only drawn down during operating hours, so opening − closing is
+// the day's consumption; top-ups (refills) show up as the level rising again.
+const OPENING_FROM_H = 6
+const OPENING_TO_H   = 15.5 // 15:30
+const CLOSING_TO_H   = 23
+
+type ReadingKind = 'opening' | 'closing' | 'other'
+
+function classifyReading(ms: number): ReadingKind {
+  const d = new Date(ms)
+  const h = d.getHours() + d.getMinutes() / 60
+  if (h >= OPENING_FROM_H && h < OPENING_TO_H) return 'opening'
+  if (h >= OPENING_TO_H   && h < CLOSING_TO_H) return 'closing'
+  return 'other'
+}
+
 type StockStatus = 'critical' | 'warning' | 'ok' | 'unknown'
 
 function getStatus(value: number | null, capacity: number): StockStatus {
@@ -97,8 +115,9 @@ function extractStockReading(data: ChemApiData, siteId: number): StockReading | 
 // ── Time series, usage & forecasting ───────────────────────────────────────────
 
 interface SeriesPoint {
-  t: number      // epoch ms
-  level: number  // litres in tank at that time
+  t: number          // epoch ms
+  level: number      // litres in tank at that time (clamped to capacity)
+  kind: ReadingKind  // opening (06:00-15:30) | closing (15:30-23:00) | other
 }
 
 interface TankSeries {
@@ -118,13 +137,15 @@ function extractSeries(data: ChemApiData, siteId: number): TankSeries {
     if (!iso) continue
     const t = new Date(iso).getTime()
     if (Number.isNaN(t)) continue
+    const kind = classifyReading(t)
 
     const logs    = data.recordLogs[String(inst.taskInstanceId)] ?? []
     const records = logs.flatMap(l => l.records)
     const mp  = getField(records, 'MP & LP - Chlorine')
     const m18 = getField(records, '18M - Chlorine')
-    if (mp  !== null) mpLp.push({ t, level: mp })
-    if (m18 !== null) eighteenM.push({ t, level: m18 })
+    // Clamp to tank capacity — readings above capacity are impossible and skew the balance calc.
+    if (mp  !== null) mpLp.push({ t, level: Math.min(mp, MP_LP_CAPACITY), kind })
+    if (m18 !== null) eighteenM.push({ t, level: Math.min(m18, EIGHTEEN_M_CAPACITY), kind })
   }
 
   mpLp.sort((a, b) => a.t - b.t)
@@ -154,19 +175,23 @@ function levelAtOrBefore(series: SeriesPoint[], ms: number): number | null {
 }
 
 /**
- * Whether the increase into `series[i]` is a genuine refill rather than a
- * mis-read spike. A real refill stays elevated and is then drawn down through
- * consumption; a mis-read jumps up for a single reading and immediately falls
- * back below the level it started from. We reject any increase whose very next
- * reading drops below the pre-jump baseline — chlorine can't be both topped up
- * and emptied past its starting point between two readings.
+ * Whether the increase into `series[i]` is a genuine refill.
+ *
+ * Two independent checks reject false positives:
+ *  1. Operating-hours impossibility: the tank can only drain during the day
+ *     (opening → closing), so any level increase in that window is bad data.
+ *  2. Spike artifact: a jump that immediately falls back below its own starting
+ *     point is a mis-read — a real top-up stays elevated.
  */
 function isRefillAt(series: SeriesPoint[], i: number): boolean {
   if (i < 1) return false
   const delta = series[i].level - series[i - 1].level
   if (delta <= REFILL_THRESHOLD_L) return false
+  // Tank can only lose chlorine during operating hours, never gain it.
+  if (series[i - 1].kind === 'opening' && series[i].kind === 'closing') return false
+  // Spike: next reading drops below the pre-jump baseline.
   const next = series[i + 1]
-  if (next && next.level < series[i - 1].level) return false // spike artifact
+  if (next && next.level < series[i - 1].level) return false
   return true
 }
 
@@ -599,34 +624,56 @@ function ReadingsInspector({ label, series }: { label: string; series: SeriesPoi
             <thead className="sticky top-0 bg-[#161a24] text-white/40">
               <tr className="border-b border-white/[0.08]">
                 <th className="py-1.5 pr-3 font-medium">Date</th>
+                <th className="py-1.5 pr-3 font-medium">Kind</th>
                 <th className="py-1.5 pr-3 text-right font-medium">Level</th>
                 <th className="py-1.5 pr-3 text-right font-medium">Δ</th>
-                <th className="py-1.5 font-medium">Type</th>
+                <th className="py-1.5 font-medium">Note</th>
               </tr>
             </thead>
             <tbody className="font-mono text-white/75">
               {series.map((p, i) => {
                 const delta = i === 0 ? null : p.level - series[i - 1].level
                 const isRefill = isRefillAt(series, i)
-                // An increase over the threshold that we reject as a mis-read.
-                const isSpike = delta !== null && delta > REFILL_THRESHOLD_L && !isRefill
-                const type =
-                  isRefill ? 'Refill'
-                  : isSpike ? 'Spike (ignored)'
+                const isSpike  = delta !== null && delta > REFILL_THRESHOLD_L && !isRefill
+                // Flag closings that are higher than the preceding opening on the same day.
+                const prevOpening = series.slice(0, i).reverse().find(q => q.kind === 'opening')
+                const sameDay = (a: number, b: number) =>
+                  new Date(a).toDateString() === new Date(b).toDateString()
+                const isAnomalous =
+                  p.kind === 'closing' &&
+                  prevOpening &&
+                  sameDay(p.t, prevOpening.t) &&
+                  p.level > prevOpening.level
+
+                const note =
+                  isRefill    ? 'Refill'
+                  : isSpike   ? 'Spike (ignored)'
+                  : isAnomalous ? 'Closing > opening ⚠'
                   : delta !== null && delta < 0 ? 'Usage'
                   : ''
-                const typeClass =
-                  isRefill ? 'text-sky-300'
-                  : isSpike ? 'text-amber-300'
+                const noteClass =
+                  isRefill      ? 'text-sky-300'
+                  : isSpike     ? 'text-amber-300'
+                  : isAnomalous ? 'text-red-300'
                   : 'text-white/30'
+                const kindLabel =
+                  p.kind === 'opening' ? 'Open'
+                  : p.kind === 'closing' ? 'Close'
+                  : '—'
+                const kindClass =
+                  p.kind === 'opening' ? 'text-white/55'
+                  : p.kind === 'closing' ? 'text-white/35'
+                  : 'text-white/20'
+
                 return (
                   <tr key={`${p.t}-${i}`} className="border-b border-white/[0.04]">
                     <td className="py-1 pr-3 font-sans text-white/55">{formatStampMs(p.t)}</td>
+                    <td className={`py-1 pr-3 font-sans ${kindClass}`}>{kindLabel}</td>
                     <td className="py-1 pr-3 text-right">{Math.round(p.level)}</td>
                     <td className={`py-1 pr-3 text-right ${delta === null ? 'text-white/30' : delta > 0 ? 'text-emerald-300' : delta < 0 ? 'text-white/60' : 'text-white/30'}`}>
                       {delta === null ? '—' : `${delta > 0 ? '+' : ''}${Math.round(delta)}`}
                     </td>
-                    <td className={`py-1 font-sans ${typeClass}`}>{type}</td>
+                    <td className={`py-1 font-sans ${noteClass}`}>{note}</td>
                   </tr>
                 )
               })}
