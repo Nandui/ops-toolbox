@@ -28,8 +28,8 @@ interface StockReading {
 const MP_LP_CAPACITY  = 500 // litres
 const EIGHTEEN_M_CAPACITY = 250 // litres
 
-const CRITICAL_PCT = 15
-const WARNING_PCT  = 30
+const CRITICAL_PCT = 10
+const WARNING_PCT  = 20
 
 type StockStatus = 'critical' | 'warning' | 'ok' | 'unknown'
 
