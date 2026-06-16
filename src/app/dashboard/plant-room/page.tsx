@@ -153,13 +153,29 @@ function levelAtOrBefore(series: SeriesPoint[], ms: number): number | null {
   return level
 }
 
-/** Sum of all refills (level increases > REFILL_THRESHOLD_L) within a time window. */
+/**
+ * Whether the increase into `series[i]` is a genuine refill rather than a
+ * mis-read spike. A real refill stays elevated and is then drawn down through
+ * consumption; a mis-read jumps up for a single reading and immediately falls
+ * back below the level it started from. We reject any increase whose very next
+ * reading drops below the pre-jump baseline — chlorine can't be both topped up
+ * and emptied past its starting point between two readings.
+ */
+function isRefillAt(series: SeriesPoint[], i: number): boolean {
+  if (i < 1) return false
+  const delta = series[i].level - series[i - 1].level
+  if (delta <= REFILL_THRESHOLD_L) return false
+  const next = series[i + 1]
+  if (next && next.level < series[i - 1].level) return false // spike artifact
+  return true
+}
+
+/** Sum of all genuine refills within a time window (mis-read spikes excluded). */
 function sumRefills(series: SeriesPoint[], fromMs: number, toMs: number): number {
   let total = 0
   for (let i = 1; i < series.length; i++) {
     if (series[i].t <= fromMs || series[i].t > toMs) continue
-    const delta = series[i].level - series[i - 1].level
-    if (delta > REFILL_THRESHOLD_L) total += delta
+    if (isRefillAt(series, i)) total += series[i].level - series[i - 1].level
   }
   return total
 }
@@ -591,7 +607,18 @@ function ReadingsInspector({ label, series }: { label: string; series: SeriesPoi
             <tbody className="font-mono text-white/75">
               {series.map((p, i) => {
                 const delta = i === 0 ? null : p.level - series[i - 1].level
-                const isRefill = delta !== null && delta > REFILL_THRESHOLD_L
+                const isRefill = isRefillAt(series, i)
+                // An increase over the threshold that we reject as a mis-read.
+                const isSpike = delta !== null && delta > REFILL_THRESHOLD_L && !isRefill
+                const type =
+                  isRefill ? 'Refill'
+                  : isSpike ? 'Spike (ignored)'
+                  : delta !== null && delta < 0 ? 'Usage'
+                  : ''
+                const typeClass =
+                  isRefill ? 'text-sky-300'
+                  : isSpike ? 'text-amber-300'
+                  : 'text-white/30'
                 return (
                   <tr key={`${p.t}-${i}`} className="border-b border-white/[0.04]">
                     <td className="py-1 pr-3 font-sans text-white/55">{formatStampMs(p.t)}</td>
@@ -599,9 +626,7 @@ function ReadingsInspector({ label, series }: { label: string; series: SeriesPoi
                     <td className={`py-1 pr-3 text-right ${delta === null ? 'text-white/30' : delta > 0 ? 'text-emerald-300' : delta < 0 ? 'text-white/60' : 'text-white/30'}`}>
                       {delta === null ? '—' : `${delta > 0 ? '+' : ''}${Math.round(delta)}`}
                     </td>
-                    <td className={`py-1 font-sans ${isRefill ? 'text-sky-300' : 'text-white/30'}`}>
-                      {isRefill ? 'Refill' : delta !== null && delta < 0 ? 'Usage' : ''}
-                    </td>
+                    <td className={`py-1 font-sans ${typeClass}`}>{type}</td>
                   </tr>
                 )
               })}
