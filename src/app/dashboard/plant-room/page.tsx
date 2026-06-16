@@ -37,10 +37,7 @@ const USAGE_MONTHS = 6
 // Rolling window used to estimate the current consumption rate for forecasting.
 const RATE_WINDOW_DAYS = 30
 
-// Readings are eyeballed, so consecutive values jitter. A change of 20 L or less
-// is treated as reading noise, not real consumption. An increase above 50 L is a
-// tank refill, never a reading error. Both are excluded from usage totals.
-const NOISE_FLOOR_L = 20
+// An increase above this threshold is a tank refill, not a reading error.
 const REFILL_THRESHOLD_L = 50
 
 type StockStatus = 'critical' | 'warning' | 'ok' | 'unknown'
@@ -144,26 +141,7 @@ interface MonthUsage {
   refilled: number     // litres added by refills during the month
 }
 
-/**
- * Litres consumed between two consecutive readings. Returns 0 for a refill
- * (a large increase) or for changes within the eyeballing noise band, so neither
- * inflates usage totals.
- */
-function consumedBetween(prevLevel: number, curLevel: number): number {
-  const delta = curLevel - prevLevel
-  if (delta > REFILL_THRESHOLD_L) return 0 // refill, not consumption
-  const drop = -delta                      // positive when the level fell
-  if (drop <= NOISE_FLOOR_L) return 0      // within eyeballing noise (or a small rise)
-  return drop
-}
-
-/** Litres added by a refill between two readings (0 if it isn't a refill). */
-function refilledBetween(prevLevel: number, curLevel: number): number {
-  const delta = curLevel - prevLevel
-  return delta > REFILL_THRESHOLD_L ? delta : 0
-}
-
-/** Tank level at or just before `ms`, or null if no reading precedes it. */
+/** Last known tank level at or before `ms` (series must be sorted ascending). */
 function levelAtOrBefore(series: SeriesPoint[], ms: number): number | null {
   let level: number | null = null
   for (const p of series) {
@@ -173,104 +151,78 @@ function levelAtOrBefore(series: SeriesPoint[], ms: number): number | null {
   return level
 }
 
-/**
- * Spreads `litres` consumed over the interval [t0, t1] across the calendar months
- * it spans, in proportion to the time spent in each month. This keeps usage that
- * straddles a month boundary from being dumped entirely into the later month.
- */
-function distributeAcrossMonths(
-  t0: number,
-  t1: number,
-  litres: number,
-  add: (year: number, month: number, litres: number) => void,
-) {
-  const span = t1 - t0
-  if (span <= 0) {
-    const d = new Date(t1)
-    add(d.getFullYear(), d.getMonth(), litres)
-    return
+/** Sum of all refills (level increases > REFILL_THRESHOLD_L) within a time window. */
+function sumRefills(series: SeriesPoint[], fromMs: number, toMs: number): number {
+  let total = 0
+  for (let i = 1; i < series.length; i++) {
+    if (series[i].t <= fromMs || series[i].t > toMs) continue
+    const delta = series[i].level - series[i - 1].level
+    if (delta > REFILL_THRESHOLD_L) total += delta
   }
-  let cursor = t0
-  while (cursor < t1) {
-    const d = new Date(cursor)
-    const nextMonthStart = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime()
-    const segEnd = Math.min(nextMonthStart, t1)
-    add(d.getFullYear(), d.getMonth(), litres * ((segEnd - cursor) / span))
-    cursor = segEnd
-  }
+  return total
 }
 
 /**
- * Per-month consumption, with each month's total split into the portion drawn
- * from stock carried in from the previous month and the portion drawn from
- * refills done within the month. Refills and reading noise are excluded from the
- * total, and cross-month consumption is split in proportion to elapsed time.
+ * Per-month consumption via the inventory balance equation:
+ *   consumed = opening + refills_in_month − closing
  *
- * The carried-in / refill split assumes carried-over stock is used before newly
- * refilled stock (FIFO): leftoverUsed = min(total, openingStock).
+ * This is immune to intermediate reading noise — only the opening and closing
+ * levels matter, not every jitter in between. Stock that "carries" from one
+ * month to the next is naturally handled: May's closing level is June's opening,
+ * so those litres never appear in May's total.
+ *
+ * The carried-over / refill split uses FIFO: opening stock is consumed before
+ * this month's refill.
  */
 function monthlyUsage(series: SeriesPoint[], monthsBack: number): MonthUsage[] {
   const now = new Date()
   const buckets: MonthUsage[] = []
-  const index = new Map<string, number>()
   for (let i = monthsBack - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const key = `${d.getFullYear()}-${d.getMonth()}`
-    index.set(key, buckets.length)
     buckets.push({
-      key,
+      key:   `${d.getFullYear()}-${d.getMonth()}`,
       label: d.toLocaleDateString('en-IE', { month: 'short' }),
-      litres: 0,
-      leftoverUsed: 0,
-      refillUsed: 0,
-      refilled: 0,
+      litres: 0, leftoverUsed: 0, refillUsed: 0, refilled: 0,
     })
   }
 
-  for (let i = 1; i < series.length; i++) {
-    // Consumption — split across the months the interval spans.
-    const used = consumedBetween(series[i - 1].level, series[i].level)
-    if (used > 0) {
-      distributeAcrossMonths(series[i - 1].t, series[i].t, used, (year, month, litres) => {
-        const bi = index.get(`${year}-${month}`)
-        if (bi !== undefined) buckets[bi].litres += litres
-      })
-    }
-    // Refills — attributed to the month the top-up happened in.
-    const added = refilledBetween(series[i - 1].level, series[i].level)
-    if (added > 0) {
-      const d = new Date(series[i].t)
-      const bi = index.get(`${d.getFullYear()}-${d.getMonth()}`)
-      if (bi !== undefined) buckets[bi].refilled += added
-    }
-  }
-
-  // Split each month's total into carried-over vs this-month's-refill usage.
   for (const b of buckets) {
     const [y, m] = b.key.split('-').map(Number)
-    const opening = levelAtOrBefore(series, new Date(y, m, 1).getTime()) ?? 0
-    b.leftoverUsed = Math.min(b.litres, opening)
-    b.refillUsed = Math.max(0, b.litres - b.leftoverUsed)
+    const monthStart = new Date(y, m,     1).getTime()
+    const monthEnd   = new Date(y, m + 1, 1).getTime()
+
+    const opening = levelAtOrBefore(series, monthStart) ?? 0
+    const closing = levelAtOrBefore(series, monthEnd)   ?? opening
+    const refills = sumRefills(series, monthStart, monthEnd)
+
+    b.refilled      = refills
+    b.litres        = Math.max(0, opening + refills - closing)
+    b.leftoverUsed  = Math.min(b.litres, opening)
+    b.refillUsed    = Math.max(0, b.litres - b.leftoverUsed)
   }
 
   return buckets
 }
 
-/** Average litres consumed per day over the most recent window. */
+/**
+ * Average litres consumed per day over the most recent window, using the same
+ * balance equation: (opening + refills − closing) / span_days.
+ */
 function recentDailyRate(series: SeriesPoint[], windowDays: number): number | null {
   if (series.length < 2) return null
-  const cutoff = Date.now() - windowDays * 86400000
-  let pts = series.filter(p => p.t >= cutoff)
-  if (pts.length < 2) pts = series // fall back to the full series
+  const fromMs = Date.now() - windowDays * 86400000
 
-  let drop = 0
-  for (let i = 1; i < pts.length; i++) {
-    drop += consumedBetween(pts[i - 1].level, pts[i].level)
-  }
+  let pts = series.filter(p => p.t >= fromMs)
+  if (pts.length < 2) pts = series // fall back to full history if window is sparse
+
+  const opening  = pts[0].level
+  const closing  = pts[pts.length - 1].level
+  const refills  = sumRefills(pts, pts[0].t, pts[pts.length - 1].t)
   const spanDays = (pts[pts.length - 1].t - pts[0].t) / 86400000
+
   if (spanDays <= 0) return null
-  const rate = drop / spanDays
-  return rate > 0 ? rate : null
+  const consumption = opening + refills - closing
+  return consumption > 0 ? consumption / spanDays : null
 }
 
 interface Forecast {
