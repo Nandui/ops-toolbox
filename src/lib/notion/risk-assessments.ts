@@ -70,6 +70,7 @@ export interface RiskMeta {
   siteOptions: string[]
   categoryOptions: string[]
   detected: Record<string, string | null> // which Notion column drove each field
+  allProperties: { name: string; type: string }[] // every column in the database for debugging
 }
 
 export interface RiskAssessmentsResult {
@@ -177,8 +178,17 @@ async function detectSchema() {
     firstMatch(selectish, /risk\s*(level|rating|score)?/i) ??
     firstMatch(selectish, /rating|severity|priority|likelihood/i) ??
     null
-  const siteProp     = firstMatch([...selectish, ...byType('rich_text')], /site|location|venue|centre|center|facility/i)
-  const categoryProp = firstMatch(selectish.filter(n => n !== riskProp && n !== statusProp), /categ|type|area|department|dept|group/i)
+  const siteProp = firstMatch([...selectish, ...byType('rich_text')], /site|location|venue|centre|center|facility/i)
+
+  // Category/area: search selects + rich_text, broad pattern to catch "Area", "Section",
+  // "Department", "Zone", "Pool", "Hazard Type", "Topic", etc.
+  const unusedSelects = selectish.filter(n => n !== riskProp && n !== statusProp && n !== siteProp)
+  const categoryProp =
+    firstMatch([...unusedSelects, ...byType('rich_text').filter(n => n !== siteProp)],
+      /categ|area|section|department|dept|group|zone|pool|hazard|topic|subject|classif/i) ??
+    // Last resort: first remaining select column
+    unusedSelects[0] ??
+    null
 
   const ownerProp =
     firstMatch(byType('people'), /.*/) ??
@@ -200,10 +210,13 @@ async function detectSchema() {
   const siteOptions     = optionNames(props[siteProp ?? ''])
   const categoryOptions = optionNames(props[categoryProp ?? ''])
 
+  const allProperties = names.map(n => ({ name: n, type: props[n]?.type ?? 'unknown' }))
+
   return {
     props,
     titleProp, statusProp, riskProp, siteProp, categoryProp, ownerProp, reviewProp,
     completeStatuses, statusOptions, riskOptions, siteOptions, categoryOptions,
+    allProperties,
   }
 }
 
@@ -273,6 +286,7 @@ export async function fetchRiskAssessments(): Promise<RiskAssessmentsResult> {
         owner: schema.ownerProp,
         reviewDate: schema.reviewProp,
       },
+      allProperties: schema.allProperties,
     },
     fetchedAt: new Date().toISOString(),
   }

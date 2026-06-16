@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle, CalendarClock, CheckCircle2, ChevronDown, ChevronRight,
-  ExternalLink, RefreshCw, ShieldAlert, User,
+  ExternalLink, Info, RefreshCw, ShieldAlert, User,
 } from 'lucide-react'
 import { LoadingState } from '@/components/ui/loading-state'
 
@@ -33,6 +33,7 @@ interface RiskMeta {
   siteOptions: string[]
   categoryOptions: string[]
   detected: Record<string, string | null>
+  allProperties?: { name: string; type: string }[]
 }
 
 // ── Risk helpers ─────────────────────────────────────────────────────────────────
@@ -67,6 +68,56 @@ function Pill({ tone, label }: { tone: Tone; label: string }) {
     <span className={`inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium whitespace-nowrap ${TONE_BG[tone]}`}>
       {label}
     </span>
+  )
+}
+
+// ── Schema debug panel ───────────────────────────────────────────────────────────
+
+function SchemaDebug({ meta }: { meta: RiskMeta }) {
+  const [open, setOpen] = useState(false)
+  const missing = Object.entries(meta.detected).filter(([, v]) => !v).map(([k]) => k)
+  if (missing.length === 0) return null // all fields detected, no need to show
+
+  return (
+    <div className="rounded-xl bg-amber-500/10 ring-1 ring-inset ring-amber-500/20">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-amber-300 focus:outline-none"
+      >
+        <Info className="size-4 shrink-0" />
+        <span className="flex-1">
+          Some Notion columns could not be auto-detected: <strong>{missing.join(', ')}</strong>. Expand for details.
+        </span>
+        {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+      </button>
+      {open && (
+        <div className="border-t border-amber-500/15 px-4 pb-4 pt-3 space-y-3 text-xs text-amber-200/70">
+          <div>
+            <p className="mb-1 font-semibold text-amber-200">Detected mappings</p>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+              {Object.entries(meta.detected).map(([field, col]) => (
+                <>
+                  <dt key={`${field}-k`} className="font-mono text-amber-300/60">{field}</dt>
+                  <dd key={`${field}-v`} className={col ? 'text-amber-100' : 'text-red-300/80'}>{col ?? '— not found'}</dd>
+                </>
+              ))}
+            </dl>
+          </div>
+          {meta.allProperties && meta.allProperties.length > 0 && (
+            <div>
+              <p className="mb-1 font-semibold text-amber-200">All Notion columns ({meta.allProperties.length})</p>
+              <div className="flex flex-wrap gap-1.5">
+                {meta.allProperties.map(p => (
+                  <span key={p.name} className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono">
+                    {p.name} <span className="text-white/30">({p.type})</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -318,6 +369,9 @@ export default function RiskAssessmentsPage() {
           {error}
         </div>
       )}
+
+      {/* Schema debug panel — shows which Notion columns were auto-detected */}
+      {meta && <SchemaDebug meta={meta} />}
 
       {!error && assessments.length === 0 && !loading ? (
         <div className="surface-card px-6 py-12 text-center text-[15px] text-white/40">
