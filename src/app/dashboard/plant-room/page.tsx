@@ -37,6 +37,12 @@ const USAGE_MONTHS = 6
 // Rolling window used to estimate the current consumption rate for forecasting.
 const RATE_WINDOW_DAYS = 30
 
+// Readings are eyeballed, so consecutive values jitter. A change of 20 L or less
+// is treated as reading noise, not real consumption. An increase above 50 L is a
+// tank refill, never a reading error. Both are excluded from usage totals.
+const NOISE_FLOOR_L = 20
+const REFILL_THRESHOLD_L = 50
+
 type StockStatus = 'critical' | 'warning' | 'ok' | 'unknown'
 
 function getStatus(value: number | null, capacity: number): StockStatus {
@@ -136,8 +142,21 @@ interface MonthUsage {
 }
 
 /**
- * Litres consumed per calendar month. Consumption is the sum of level *drops*
- * between consecutive readings; increases (refills) are ignored. Each drop is
+ * Litres consumed between two consecutive readings. Returns 0 for a refill
+ * (a large increase) or for changes within the eyeballing noise band, so neither
+ * inflates usage totals.
+ */
+function consumedBetween(prevLevel: number, curLevel: number): number {
+  const delta = curLevel - prevLevel
+  if (delta > REFILL_THRESHOLD_L) return 0 // refill, not consumption
+  const drop = -delta                      // positive when the level fell
+  if (drop <= NOISE_FLOOR_L) return 0      // within eyeballing noise (or a small rise)
+  return drop
+}
+
+/**
+ * Litres consumed per calendar month — the sum of genuine level drops between
+ * consecutive readings (refills and reading noise excluded). Each drop is
  * attributed to the month of the later reading.
  */
 function monthlyUsage(series: SeriesPoint[], monthsBack: number): MonthUsage[] {
@@ -152,11 +171,11 @@ function monthlyUsage(series: SeriesPoint[], monthsBack: number): MonthUsage[] {
   }
 
   for (let i = 1; i < series.length; i++) {
-    const drop = series[i - 1].level - series[i].level
-    if (drop <= 0) continue
+    const used = consumedBetween(series[i - 1].level, series[i].level)
+    if (used === 0) continue
     const d = new Date(series[i].t)
     const bi = index.get(`${d.getFullYear()}-${d.getMonth()}`)
-    if (bi !== undefined) buckets[bi].litres += drop
+    if (bi !== undefined) buckets[bi].litres += used
   }
   return buckets
 }
@@ -170,8 +189,7 @@ function recentDailyRate(series: SeriesPoint[], windowDays: number): number | nu
 
   let drop = 0
   for (let i = 1; i < pts.length; i++) {
-    const d = pts[i - 1].level - pts[i].level
-    if (d > 0) drop += d
+    drop += consumedBetween(pts[i - 1].level, pts[i].level)
   }
   const spanDays = (pts[pts.length - 1].t - pts[0].t) / 86400000
   if (spanDays <= 0) return null
