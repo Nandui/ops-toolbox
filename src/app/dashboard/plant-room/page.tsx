@@ -31,32 +31,8 @@ const EIGHTEEN_M_CAPACITY = 250 // litres
 const CRITICAL_PCT = 10
 const WARNING_PCT  = 20 // reorder threshold
 
-// How far back to pull readings — enough for ~6 months of usage history.
-const HISTORY_DAYS = 180
-const USAGE_MONTHS = 6
-// Rolling window used to estimate the current consumption rate for forecasting.
-const RATE_WINDOW_DAYS = 30
-
-// An increase above this threshold is a tank refill, not a reading error.
-const REFILL_THRESHOLD_L = 50
-
-// Each task is read twice a day. A reading taken between 06:00 and 15:30 is the
-// day's OPENING stock; anything after that until 23:00 is the CLOSING stock.
-// Chlorine is only drawn down during operating hours, so opening − closing is
-// the day's consumption; top-ups (refills) show up as the level rising again.
-const OPENING_FROM_H = 6
-const OPENING_TO_H   = 15.5 // 15:30
-const CLOSING_TO_H   = 23
-
-type ReadingKind = 'opening' | 'closing' | 'other'
-
-function classifyReading(ms: number): ReadingKind {
-  const d = new Date(ms)
-  const h = d.getHours() + d.getMinutes() / 60
-  if (h >= OPENING_FROM_H && h < OPENING_TO_H) return 'opening'
-  if (h >= OPENING_TO_H   && h < CLOSING_TO_H) return 'closing'
-  return 'other'
-}
+// How far back to look for the latest reading.
+const HISTORY_DAYS = 30
 
 type StockStatus = 'critical' | 'warning' | 'ok' | 'unknown'
 
@@ -85,6 +61,7 @@ function isCO2Stock(name: string) {
   return /chlorine.*co2/i.test(name) || /co2.*chlorine/i.test(name) || /🛢️/u.test(name)
 }
 
+/** Most recent CO2 stock reading for a site, across all of its completed tasks. */
 function extractStockReading(data: ChemApiData, siteId: number): StockReading | null {
   if (!data.recordLogs || !data.instances) return null
 
@@ -110,186 +87,6 @@ function extractStockReading(data: ChemApiData, siteId: number): StockReading | 
     }
   }
   return null
-}
-
-// ── Time series, usage & forecasting ───────────────────────────────────────────
-
-interface SeriesPoint {
-  t: number          // epoch ms
-  level: number      // litres in tank at that time (clamped to capacity)
-  kind: ReadingKind  // opening (06:00-15:30) | closing (15:30-23:00) | other
-}
-
-interface TankSeries {
-  mpLp: SeriesPoint[]
-  eighteenM: SeriesPoint[]
-}
-
-/** Builds an ascending-by-time level series for each tank from all stock readings. */
-function extractSeries(data: ChemApiData, siteId: number): TankSeries {
-  const mpLp: SeriesPoint[] = []
-  const eighteenM: SeriesPoint[] = []
-  if (!data.recordLogs || !data.instances) return { mpLp, eighteenM }
-
-  for (const inst of data.instances) {
-    if (inst.siteId !== siteId || !isCO2Stock(inst.taskInstanceName || '')) continue
-    const iso = inst.completedDatetime || inst.dueFromDatetime
-    if (!iso) continue
-    const t = new Date(iso).getTime()
-    if (Number.isNaN(t)) continue
-    const kind = classifyReading(t)
-
-    const logs    = data.recordLogs[String(inst.taskInstanceId)] ?? []
-    const records = logs.flatMap(l => l.records)
-    const mp  = getField(records, 'MP & LP - Chlorine')
-    const m18 = getField(records, '18M - Chlorine')
-    // Clamp to tank capacity — readings above capacity are impossible and skew the balance calc.
-    if (mp  !== null) mpLp.push({ t, level: Math.min(mp, MP_LP_CAPACITY), kind })
-    if (m18 !== null) eighteenM.push({ t, level: Math.min(m18, EIGHTEEN_M_CAPACITY), kind })
-  }
-
-  mpLp.sort((a, b) => a.t - b.t)
-  eighteenM.sort((a, b) => a.t - b.t)
-  return { mpLp, eighteenM }
-}
-
-interface MonthUsage {
-  key: string
-  label: string
-  litres: number       // total consumed = sum of daily (opening − closing)
-  leftoverUsed: number // portion consumed from stock carried in from previous month
-  refillUsed: number   // portion consumed from this month's refills
-  refilled: number     // total overnight refills during the month
-  opening: number      // first opening reading of the month
-  closing: number      // last closing reading of the month
-}
-
-/**
- * A single day's opening/closing pair. Readings are matched to the day they
- * were taken; if a day has multiple openings the earliest is used, if multiple
- * closings the latest is used.
- */
-interface DailyRecord {
-  date: string          // YYYY-MM-DD
-  dateMs: number        // midnight epoch ms
-  opening: number | null
-  closing: number | null
-  consumed: number      // max(0, opening − closing); 0 when either is missing
-  refill: number        // overnight top-up before this morning's opening
-}
-
-/**
- * Group a raw series into per-day opening/closing pairs.
- *
- * Refills are detected by comparing each morning's opening to the previous
- * evening's closing. Any overnight increase > REFILL_THRESHOLD_L is a refill.
- */
-function buildDailyRecords(series: SeriesPoint[]): DailyRecord[] {
-  type Entry = {
-    openingLevel: number | null; openingT: number
-    closingLevel: number | null; closingT: number
-    dateMs: number
-  }
-  const byDate = new Map<string, Entry>()
-
-  for (const p of series) {
-    const d    = new Date(p.t)
-    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const dateMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-    if (!byDate.has(date)) {
-      byDate.set(date, { openingLevel: null, openingT: Infinity, closingLevel: null, closingT: -Infinity, dateMs })
-    }
-    const rec = byDate.get(date)!
-    if (p.kind === 'opening' && p.t < rec.openingT) {
-      rec.openingLevel = p.level; rec.openingT = p.t
-    } else if (p.kind === 'closing' && p.t > rec.closingT) {
-      rec.closingLevel = p.level; rec.closingT = p.t
-    }
-  }
-
-  const sorted = [...byDate.entries()].sort((a, b) => a[1].dateMs - b[1].dateMs)
-  return sorted.map(([date, entry], i) => {
-    const opening  = entry.openingLevel
-    const closing  = entry.closingLevel
-    const consumed = opening !== null && closing !== null ? Math.max(0, opening - closing) : 0
-
-    let refill = 0
-    if (i > 0 && opening !== null) {
-      const prevClose = sorted[i - 1][1].closingLevel
-      if (prevClose !== null) {
-        const delta = opening - prevClose
-        if (delta > REFILL_THRESHOLD_L) refill = delta
-      }
-    }
-    return { date, dateMs: entry.dateMs, opening, closing, consumed, refill }
-  })
-}
-
-/** Aggregate daily records into per-month totals for the bar chart. */
-function monthlyUsage(records: DailyRecord[], monthsBack: number): MonthUsage[] {
-  const now = new Date()
-  const buckets: MonthUsage[] = []
-  for (let i = monthsBack - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    buckets.push({
-      key:   `${d.getFullYear()}-${d.getMonth()}`,
-      label: d.toLocaleDateString('en-IE', { month: 'short' }),
-      litres: 0, leftoverUsed: 0, refillUsed: 0, refilled: 0, opening: 0, closing: 0,
-    })
-  }
-
-  for (const b of buckets) {
-    const [y, m] = b.key.split('-').map(Number)
-    const monthStart = new Date(y, m,     1).getTime()
-    const monthEnd   = new Date(y, m + 1, 1).getTime()
-
-    const month = records.filter(r => r.dateMs >= monthStart && r.dateMs < monthEnd)
-    b.litres  = month.reduce((s, r) => s + r.consumed, 0)
-    b.refilled = month.reduce((s, r) => s + r.refill,  0)
-
-    const firstOpen = month.find(r => r.opening !== null)
-    const lastClose = [...month].reverse().find(r => r.closing !== null)
-    b.opening = firstOpen?.opening ?? 0
-    b.closing = lastClose?.closing ?? 0
-
-    b.leftoverUsed = Math.min(b.litres, b.opening)
-    b.refillUsed   = Math.max(0, b.litres - b.leftoverUsed)
-  }
-
-  return buckets
-}
-
-/** Average daily consumption over the most recent window of daily records. */
-function recentDailyRate(records: DailyRecord[], windowDays: number): number | null {
-  const fromMs = Date.now() - windowDays * 86400000
-  let window = records.filter(r => r.dateMs >= fromMs && r.consumed > 0)
-  if (window.length < 3) window = records.filter(r => r.consumed > 0)
-  if (window.length === 0) return null
-  return window.reduce((s, r) => s + r.consumed, 0) / window.length
-}
-
-interface Forecast {
-  current: number | null
-  rate: number | null   // litres/day
-  reorder: 'now' | { date: Date; days: number } | null
-}
-
-function buildForecast(current: number | null, rate: number | null, capacity: number): Forecast {
-  const threshold = capacity * (WARNING_PCT / 100)
-  let reorder: Forecast['reorder'] = null
-  if (current !== null) {
-    if (current <= threshold) {
-      reorder = 'now'
-    } else if (rate && rate > 0) {
-      const days = (current - threshold) / rate
-      reorder = { date: new Date(Date.now() + days * 86400000), days }
-    }
-  }
-  return { current, rate, reorder }
-}
-
-function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-IE', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function todayKey() {
@@ -410,217 +207,10 @@ function TankCard({
             <div>Capacity {capacity} L · Critical below {CRITICAL_PCT}%</div>
             {readingTime
               ? <div>Last reading: {readingTime}</div>
-              : <div>No reading found in the last 6 months</div>
+              : <div>No reading found in the last {HISTORY_DAYS} days</div>
             }
           </div>
         </div>
-      </div>
-    </article>
-  )
-}
-
-function UsageBarChart({
-  data,
-  leftoverClass,
-  refillClass,
-}: {
-  data: MonthUsage[]
-  leftoverClass: string
-  refillClass: string
-}) {
-  const [hover, setHover] = useState<number | null>(null)
-  const max = Math.max(...data.map(d => d.litres))
-  if (max <= 0) {
-    return (
-      <div className="flex h-32 items-center justify-center text-caption text-white/30">
-        No usage recorded yet
-      </div>
-    )
-  }
-  return (
-    <div>
-      {/* Legend */}
-      <div className="mb-3 flex items-center gap-4 text-[11px] text-white/45">
-        <span className="flex items-center gap-1.5">
-          <span className={`inline-block size-2.5 rounded-sm ${leftoverClass}`} />
-          Carried over
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className={`inline-block size-2.5 rounded-sm ${refillClass}`} />
-          This month&apos;s refill
-        </span>
-      </div>
-
-      <div className="flex items-end gap-2" style={{ height: 128 }}>
-        {data.map((d, i) => {
-          const h = (d.litres / max) * 85 // leave headroom for the value label
-          const leftoverPct = d.litres > 0 ? (d.leftoverUsed / d.litres) * 100 : 0
-          const refillPct   = d.litres > 0 ? (d.refillUsed   / d.litres) * 100 : 0
-          return (
-            <div
-              key={d.key}
-              className="relative flex h-full flex-1 flex-col items-center justify-end"
-              onMouseEnter={() => setHover(i)}
-              onMouseLeave={() => setHover(prev => (prev === i ? null : prev))}
-            >
-              {/* Tooltip */}
-              {hover === i && d.litres > 0 && (
-                <div className="surface-elevated pointer-events-none absolute bottom-full z-20 mb-1 w-44 rounded-lg p-2.5 text-left">
-                  <div className="mb-1.5 text-caption font-medium text-white">{d.label}</div>
-                  {/* Inventory balance: opening + refilled − closing = used */}
-                  <div className="flex items-center justify-between text-[11px] text-white/55">
-                    <span>Opening stock</span>
-                    <span className="font-mono text-white/80">{Math.round(d.opening)} L</span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between text-[11px] text-white/55">
-                    <span>Refilled</span>
-                    <span className="font-mono text-emerald-300">+{Math.round(d.refilled)} L</span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between text-[11px] text-white/55">
-                    <span>Carried to next month</span>
-                    <span className="font-mono text-amber-300">−{Math.round(d.closing)} L</span>
-                  </div>
-                  <div className="mt-1.5 flex items-center justify-between border-t border-white/[0.08] pt-1.5 text-[11px] text-white/55">
-                    <span>Used this month</span>
-                    <span className="font-mono text-white">{Math.round(d.litres)} L</span>
-                  </div>
-                </div>
-              )}
-
-              <span className="mb-1 font-mono text-[10px] text-white/45">
-                {d.litres > 0 ? Math.round(d.litres) : ''}
-              </span>
-              <div
-                className={`flex w-full flex-col justify-end overflow-hidden rounded-t-md transition-all duration-500 ${hover === i ? 'ring-1 ring-white/30' : ''}`}
-                style={{ height: `${h}%` }}
-              >
-                <div className={refillClass}   style={{ height: `${refillPct}%` }} />
-                <div className={leftoverClass} style={{ height: `${leftoverPct}%` }} />
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      <div className="mt-1.5 flex gap-2">
-        {data.map(d => (
-          <div key={d.key} className="flex-1 text-center text-[10px] text-white/40">{d.label}</div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function ForecastCard({
-  label,
-  series,
-  records,
-  capacity,
-  leftoverClass,
-  refillClass,
-}: {
-  label: string
-  series: SeriesPoint[]
-  records: DailyRecord[]
-  capacity: number
-  leftoverClass: string
-  refillClass: string
-}) {
-  const usage = monthlyUsage(records, USAGE_MONTHS)
-  const current = series.length ? series[series.length - 1].level : null
-  const rate = recentDailyRate(records, RATE_WINDOW_DAYS)
-  const { reorder } = buildForecast(current, rate, capacity)
-
-  const reorderNode =
-    reorder === 'now'
-      ? <span className="text-red-300">Reorder now</span>
-      : reorder
-      ? <span className={reorder.days <= 14 ? 'text-amber-300' : 'text-white'}>
-          {formatDate(reorder.date)}
-          <span className="text-white/40"> · in {Math.max(0, Math.round(reorder.days))}d</span>
-        </span>
-      : <span className="text-white/40">—</span>
-
-  return (
-    <article className="surface-card p-5">
-      <div className="pb-4 border-b border-white/[0.06]">
-        <h3 className="text-headline text-white">{label}</h3>
-        <p className="mt-0.5 text-caption text-white/40">Monthly usage (litres) &amp; reorder forecast</p>
-      </div>
-
-      <div className="mt-4">
-        <UsageBarChart data={usage} leftoverClass={leftoverClass} refillClass={refillClass} />
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-3 pt-4 border-t border-white/[0.06]">
-        <div>
-          <div className="text-caption text-white/40">Avg daily use</div>
-          <div className="mt-0.5 font-mono text-lg leading-none text-white">
-            {rate !== null ? rate.toFixed(1) : '—'}
-            <span className="ml-1 text-sm text-white/40">L/day</span>
-          </div>
-        </div>
-        <div>
-          <div className="text-caption text-white/40">Reorder by</div>
-          <div className="mt-0.5 text-sm font-medium leading-tight">{reorderNode}</div>
-        </div>
-      </div>
-
-      <p className="mt-3 text-caption text-white/30">
-        Forecast projects the current usage rate down to the {WARNING_PCT}% reorder level and assumes no refills.
-      </p>
-    </article>
-  )
-}
-
-
-function ReadingsInspector({ label, records }: { label: string; records: DailyRecord[] }) {
-  const recent = records.slice(-USAGE_MONTHS * 31) // last ~6 months
-
-  return (
-    <article className="surface-card p-5">
-      <h3 className="text-headline text-white">{label}</h3>
-      <p className="mt-0.5 text-caption text-white/40">Daily opening / closing pairs — {recent.length} days</p>
-
-      <div className="mt-3 max-h-80 overflow-y-auto">
-        <table className="w-full text-left text-[12px]">
-          <thead className="sticky top-0 bg-[#161a24] text-white/40">
-            <tr className="border-b border-white/[0.08]">
-              <th className="py-1.5 pr-3 font-medium">Date</th>
-              <th className="py-1.5 pr-3 text-right font-medium">Opening</th>
-              <th className="py-1.5 pr-3 text-right font-medium">Closing</th>
-              <th className="py-1.5 pr-3 text-right font-medium">Used</th>
-              <th className="py-1.5 text-right font-medium">Refill</th>
-            </tr>
-          </thead>
-          <tbody className="font-mono text-white/75">
-            {recent.map(r => {
-              const [y, mo, d] = r.date.split('-').map(Number)
-              const label = new Date(y, mo - 1, d).toLocaleDateString('en-IE', { day: '2-digit', month: 'short' })
-              const missingOpen  = r.opening === null
-              const missingClose = r.closing === null
-              return (
-                <tr key={r.date} className="border-b border-white/[0.04]">
-                  <td className="py-1 pr-3 font-sans text-white/55">{label}</td>
-                  <td className={`py-1 pr-3 text-right ${missingOpen ? 'text-white/25 italic' : ''}`}>
-                    {r.opening !== null ? Math.round(r.opening) : '—'}
-                  </td>
-                  <td className={`py-1 pr-3 text-right ${missingClose ? 'text-white/25 italic' : ''}`}>
-                    {r.closing !== null ? Math.round(r.closing) : '—'}
-                  </td>
-                  <td className="py-1 pr-3 text-right text-white/80">
-                    {r.consumed > 0 ? Math.round(r.consumed) : '—'}
-                  </td>
-                  <td className="py-1 text-right">
-                    {r.refill > 0
-                      ? <span className="text-sky-300">+{Math.round(r.refill)}</span>
-                      : <span className="text-white/20">—</span>
-                    }
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
       </div>
     </article>
   )
@@ -630,11 +220,9 @@ function ReadingsInspector({ label, records }: { label: string; records: DailyRe
 
 export default function PlantRoomPage() {
   const [stockReading, setStockReading] = useState<StockReading | null>(null)
-  const [series,       setSeries]       = useState<TankSeries>({ mpLp: [], eighteenM: [] })
   const [loading,      setLoading]      = useState(true)
   const [error,        setError]        = useState<string | null>(null)
   const [selectedSiteId, setSelectedSiteId] = useState<number>(SITES[0].id)
-  const [showReadings, setShowReadings] = useState(false)
 
   const fetchData = useCallback(async (siteId: number) => {
     setLoading(true)
@@ -646,7 +234,6 @@ export default function PlantRoomPage() {
       if (!res.ok) throw new Error(`API error: ${res.status}`)
       const data = await res.json() as ChemApiData
       setStockReading(extractStockReading(data, siteId))
-      setSeries(extractSeries(data, siteId))
     } catch (err) {
       setError(String(err))
     } finally {
@@ -663,9 +250,6 @@ export default function PlantRoomPage() {
 
   const site = SITES.find(s => s.id === selectedSiteId)
   const hasTwoTanks = (site?.pools as readonly string[] | undefined)?.includes('18m') ?? false
-
-  const mpLpRecords     = buildDailyRecords(series.mpLp)
-  const eighteenMRecords = buildDailyRecords(series.eighteenM)
 
   return (
     <div className="space-y-6">
@@ -686,12 +270,6 @@ export default function PlantRoomPage() {
           >
             {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
-          <button
-            onClick={() => setShowReadings(s => !s)}
-            className="flex items-center gap-2 h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white/60 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-          >
-            {showReadings ? 'Hide readings' : 'Show readings'}
-          </button>
           <button
             onClick={() => fetchData(selectedSiteId)}
             disabled={loading}
@@ -714,7 +292,7 @@ export default function PlantRoomPage() {
         <LoadingState label="Loading plant room data…" />
       ) : !stockReading ? (
         <div className="surface-card px-6 py-12 text-center text-[15px] text-white/40">
-          No chlorine stock data found for this site in the last 7 days.
+          No chlorine stock data found for this site in the last {HISTORY_DAYS} days.
         </div>
       ) : (
         <div className={`grid grid-cols-1 gap-4 ${hasTwoTanks ? 'sm:grid-cols-2' : ''}`}>
@@ -734,44 +312,6 @@ export default function PlantRoomPage() {
               readingTime={readingTime}
             />
           )}
-        </div>
-      )}
-
-      {/* Usage & forecast */}
-      {!loading && stockReading && (
-        <div className="space-y-3">
-          <h2 className="text-headline text-white/80">Usage &amp; forecast</h2>
-          <div className={`grid grid-cols-1 gap-4 ${hasTwoTanks ? 'sm:grid-cols-2' : ''}`}>
-            <ForecastCard
-              label="MP & LP Tank"
-              series={series.mpLp}
-              records={mpLpRecords}
-              capacity={MP_LP_CAPACITY}
-              leftoverClass="bg-emerald-500/25"
-              refillClass="bg-emerald-500/65"
-            />
-            {hasTwoTanks && (
-              <ForecastCard
-                label="18M Tank"
-                series={series.eighteenM}
-                records={eighteenMRecords}
-                capacity={EIGHTEEN_M_CAPACITY}
-                leftoverClass="bg-sky-500/25"
-                refillClass="bg-sky-500/65"
-              />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Readings inspector (debug) */}
-      {!loading && stockReading && showReadings && (
-        <div className="space-y-3">
-          <h2 className="text-headline text-white/80">Readings &amp; balance</h2>
-          <div className={`grid grid-cols-1 gap-4 ${hasTwoTanks ? 'sm:grid-cols-2' : ''}`}>
-            <ReadingsInspector label="MP & LP Tank" records={mpLpRecords} />
-            {hasTwoTanks && <ReadingsInspector label="18M Tank" records={eighteenMRecords} />}
-          </div>
         </div>
       )}
 
