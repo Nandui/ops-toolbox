@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { CheckCircle, XCircle, ArrowLeft, Clock } from 'lucide-react'
+import { CheckCircle, XCircle, ArrowLeft, Clock, Paperclip, FileText, Upload } from 'lucide-react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { Button } from '@/components/ui/button'
 import { StatusBanner } from '@/components/ui/status-banner'
@@ -116,6 +116,20 @@ function ApproveModal({
           ))}
         </dl>
 
+        {/* Quote */}
+        {po.quoteUrl && (
+          <a
+            href={po.quoteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 transition-colors hover:border-white/20 hover:bg-white/[0.06]"
+          >
+            <FileText className="size-4 shrink-0 text-white/50" />
+            <span className="min-w-0 flex-1 truncate text-sm text-white/80">{po.quoteName ?? 'View quote'}</span>
+            <span className="shrink-0 text-[12px] font-medium text-emerald-300">Open</span>
+          </a>
+        )}
+
         {/* Action selector */}
         {!action ? (
           <div className="grid grid-cols-2 gap-3">
@@ -194,6 +208,8 @@ function ApproveModal({
 
 // ── Submit Form ────────────────────────────────────────────────────────────────
 
+const MAX_QUOTE_BYTES = 20 * 1024 * 1024
+
 function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
   const { user } = useAuth()
   const [site, setSite]         = useState<string>('')
@@ -201,15 +217,27 @@ function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
   const [description, setDesc]  = useState('')
   const [urgency, setUrgency]   = useState('Routine')
   const [value, setValue]       = useState('')
+  const [quote, setQuote]       = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]       = useState<string | null>(null)
   const [success, setSuccess]   = useState<string | null>(null)
+  const fileRef                 = useRef<HTMLInputElement>(null)
+
+  function pickFile(f: File | null) {
+    if (f && f.size > MAX_QUOTE_BYTES) {
+      setError('Quote file must be 20 MB or smaller.')
+      return
+    }
+    setError(null)
+    setQuote(f)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!site || !supplier.trim() || !description.trim() || !urgency || !value) {
       setError('Please fill in all required fields.'); return
     }
+    if (!quote) { setError('Please attach the supplier quote.'); return }
     const v = parseFloat(value)
     if (isNaN(v) || v <= 0) { setError('Enter a valid order value.'); return }
 
@@ -220,6 +248,7 @@ function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
     form.append('supplier', supplier.trim())
     form.append('urgency', urgency)
     form.append('value', String(v))
+    form.append('quote', quote)
 
     const res = await fetch('/api/purchase-orders', { method: 'POST', body: form })
     const data = await res.json()
@@ -227,6 +256,8 @@ function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
 
     setSuccess('Request submitted successfully.')
     setSite(''); setSupplier(''); setDesc(''); setUrgency('Routine'); setValue('')
+    setQuote(null)
+    if (fileRef.current) fileRef.current.value = ''
     setSubmitting(false)
     onSubmitted()
   }
@@ -296,6 +327,45 @@ function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
               {URGENCIES.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
           </div>
+        </div>
+
+        {/* Quote document */}
+        <div>
+          <label className={labelCls}>Quote document <span className="text-red-400">*</span></label>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.heic"
+            className="hidden"
+            onChange={e => pickFile(e.target.files?.[0] ?? null)}
+          />
+          {quote ? (
+            <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] px-3.5 py-3">
+              <FileText className="size-4 shrink-0 text-emerald-300" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm text-white">{quote.name}</p>
+                <p className="text-[11px] text-white/40">{(quote.size / 1024 / 1024).toFixed(2)} MB</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setQuote(null); if (fileRef.current) fileRef.current.value = '' }}
+                className="shrink-0 text-white/30 transition-colors hover:text-white/70"
+                aria-label="Remove file"
+              >
+                <XCircle className="size-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-5 text-sm text-white/50 transition-colors hover:border-white/25 hover:text-white/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              <Upload className="size-4" />
+              Attach quote (PDF, image, or document)
+            </button>
+          )}
+          <p className="mt-1.5 text-[11px] text-white/30">Required — max 20 MB. The approver reviews this before issuing a PO number.</p>
         </div>
 
         <Button type="submit" variant="primary" className="w-full" disabled={submitting}>
@@ -423,6 +493,20 @@ function OrderStatusList({ pos, loading, isAdmin, onReview }: {
                       <span>{fmtDate(po.requestDate ?? po.createdTime)}</span>
                       {po.requestedBy !== user?.name && (
                         <><span className="text-white/20">·</span><span>{po.requestedBy}</span></>
+                      )}
+                      {po.quoteUrl && (
+                        <>
+                          <span className="text-white/20">·</span>
+                          <a
+                            href={po.quoteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-white/55 transition-colors hover:text-emerald-300"
+                          >
+                            <Paperclip className="size-3" /> Quote
+                          </a>
+                        </>
                       )}
                     </div>
                   </div>
