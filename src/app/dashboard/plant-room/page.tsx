@@ -155,9 +155,36 @@ function consumedBetween(prevLevel: number, curLevel: number): number {
 }
 
 /**
+ * Spreads `litres` consumed over the interval [t0, t1] across the calendar months
+ * it spans, in proportion to the time spent in each month. This keeps usage that
+ * straddles a month boundary from being dumped entirely into the later month.
+ */
+function distributeAcrossMonths(
+  t0: number,
+  t1: number,
+  litres: number,
+  add: (year: number, month: number, litres: number) => void,
+) {
+  const span = t1 - t0
+  if (span <= 0) {
+    const d = new Date(t1)
+    add(d.getFullYear(), d.getMonth(), litres)
+    return
+  }
+  let cursor = t0
+  while (cursor < t1) {
+    const d = new Date(cursor)
+    const nextMonthStart = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime()
+    const segEnd = Math.min(nextMonthStart, t1)
+    add(d.getFullYear(), d.getMonth(), litres * ((segEnd - cursor) / span))
+    cursor = segEnd
+  }
+}
+
+/**
  * Litres consumed per calendar month — the sum of genuine level drops between
- * consecutive readings (refills and reading noise excluded). Each drop is
- * attributed to the month of the later reading.
+ * consecutive readings (refills and reading noise excluded). Consumption that
+ * spans a month boundary is split between months in proportion to elapsed time.
  */
 function monthlyUsage(series: SeriesPoint[], monthsBack: number): MonthUsage[] {
   const now = new Date()
@@ -173,9 +200,10 @@ function monthlyUsage(series: SeriesPoint[], monthsBack: number): MonthUsage[] {
   for (let i = 1; i < series.length; i++) {
     const used = consumedBetween(series[i - 1].level, series[i].level)
     if (used === 0) continue
-    const d = new Date(series[i].t)
-    const bi = index.get(`${d.getFullYear()}-${d.getMonth()}`)
-    if (bi !== undefined) buckets[bi].litres += used
+    distributeAcrossMonths(series[i - 1].t, series[i].t, used, (year, month, litres) => {
+      const bi = index.get(`${year}-${month}`)
+      if (bi !== undefined) buckets[bi].litres += litres
+    })
   }
   return buckets
 }
