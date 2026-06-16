@@ -6,7 +6,7 @@ import { useEffect } from 'react'
 import {
   LayoutDashboard, FlaskConical, CheckSquare, BarChart3,
   AlertTriangle, ClipboardList, Settings, Users, Waves,
-  CalendarDays, ClipboardEdit, LogOut, X, ShoppingCart,
+  CalendarDays, ClipboardEdit, LogOut, X, ShoppingCart, Gauge,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/components/auth/AuthProvider'
@@ -41,8 +41,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Monitoring',
     items: [
-      { href: '/dashboard/chemistry', label: 'Pool Chemistry', icon: FlaskConical  },
-      { href: '/dashboard/tasks',     label: 'Task Board',     icon: CheckSquare   },
+      { href: '/dashboard/chemistry',   label: 'Pool Chemistry', icon: FlaskConical  },
+      { href: '/dashboard/plant-room', label: 'Plant Room',    icon: Gauge         },
+      { href: '/dashboard/tasks',      label: 'Task Board',    icon: CheckSquare   },
       { href: '/dashboard/scores',    label: 'Site Scores',    icon: BarChart3     },
       { href: '/dashboard/incidents', label: 'Incidents',      icon: AlertTriangle },
       { href: '/dashboard/handovers', label: 'Handovers',      icon: ClipboardList },
