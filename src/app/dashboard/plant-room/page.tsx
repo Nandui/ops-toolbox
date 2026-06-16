@@ -138,7 +138,10 @@ function extractSeries(data: ChemApiData, siteId: number): TankSeries {
 interface MonthUsage {
   key: string
   label: string
-  litres: number
+  litres: number       // total consumed this month
+  leftoverUsed: number // of the total, the portion drawn from stock carried in
+  refillUsed: number   // of the total, the portion drawn from this month's refills
+  refilled: number     // litres added by refills during the month
 }
 
 /**
@@ -152,6 +155,22 @@ function consumedBetween(prevLevel: number, curLevel: number): number {
   const drop = -delta                      // positive when the level fell
   if (drop <= NOISE_FLOOR_L) return 0      // within eyeballing noise (or a small rise)
   return drop
+}
+
+/** Litres added by a refill between two readings (0 if it isn't a refill). */
+function refilledBetween(prevLevel: number, curLevel: number): number {
+  const delta = curLevel - prevLevel
+  return delta > REFILL_THRESHOLD_L ? delta : 0
+}
+
+/** Tank level at or just before `ms`, or null if no reading precedes it. */
+function levelAtOrBefore(series: SeriesPoint[], ms: number): number | null {
+  let level: number | null = null
+  for (const p of series) {
+    if (p.t <= ms) level = p.level
+    else break
+  }
+  return level
 }
 
 /**
@@ -182,9 +201,13 @@ function distributeAcrossMonths(
 }
 
 /**
- * Litres consumed per calendar month — the sum of genuine level drops between
- * consecutive readings (refills and reading noise excluded). Consumption that
- * spans a month boundary is split between months in proportion to elapsed time.
+ * Per-month consumption, with each month's total split into the portion drawn
+ * from stock carried in from the previous month and the portion drawn from
+ * refills done within the month. Refills and reading noise are excluded from the
+ * total, and cross-month consumption is split in proportion to elapsed time.
+ *
+ * The carried-in / refill split assumes carried-over stock is used before newly
+ * refilled stock (FIFO): leftoverUsed = min(total, openingStock).
  */
 function monthlyUsage(series: SeriesPoint[], monthsBack: number): MonthUsage[] {
   const now = new Date()
@@ -194,17 +217,42 @@ function monthlyUsage(series: SeriesPoint[], monthsBack: number): MonthUsage[] {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
     const key = `${d.getFullYear()}-${d.getMonth()}`
     index.set(key, buckets.length)
-    buckets.push({ key, label: d.toLocaleDateString('en-IE', { month: 'short' }), litres: 0 })
+    buckets.push({
+      key,
+      label: d.toLocaleDateString('en-IE', { month: 'short' }),
+      litres: 0,
+      leftoverUsed: 0,
+      refillUsed: 0,
+      refilled: 0,
+    })
   }
 
   for (let i = 1; i < series.length; i++) {
+    // Consumption — split across the months the interval spans.
     const used = consumedBetween(series[i - 1].level, series[i].level)
-    if (used === 0) continue
-    distributeAcrossMonths(series[i - 1].t, series[i].t, used, (year, month, litres) => {
-      const bi = index.get(`${year}-${month}`)
-      if (bi !== undefined) buckets[bi].litres += litres
-    })
+    if (used > 0) {
+      distributeAcrossMonths(series[i - 1].t, series[i].t, used, (year, month, litres) => {
+        const bi = index.get(`${year}-${month}`)
+        if (bi !== undefined) buckets[bi].litres += litres
+      })
+    }
+    // Refills — attributed to the month the top-up happened in.
+    const added = refilledBetween(series[i - 1].level, series[i].level)
+    if (added > 0) {
+      const d = new Date(series[i].t)
+      const bi = index.get(`${d.getFullYear()}-${d.getMonth()}`)
+      if (bi !== undefined) buckets[bi].refilled += added
+    }
   }
+
+  // Split each month's total into carried-over vs this-month's-refill usage.
+  for (const b of buckets) {
+    const [y, m] = b.key.split('-').map(Number)
+    const opening = levelAtOrBefore(series, new Date(y, m, 1).getTime()) ?? 0
+    b.leftoverUsed = Math.min(b.litres, opening)
+    b.refillUsed = Math.max(0, b.litres - b.leftoverUsed)
+  }
+
   return buckets
 }
 
@@ -379,7 +427,16 @@ function TankCard({
   )
 }
 
-function UsageBarChart({ data, barClass }: { data: MonthUsage[]; barClass: string }) {
+function UsageBarChart({
+  data,
+  leftoverClass,
+  refillClass,
+}: {
+  data: MonthUsage[]
+  leftoverClass: string
+  refillClass: string
+}) {
+  const [hover, setHover] = useState<number | null>(null)
   const max = Math.max(...data.map(d => d.litres))
   if (max <= 0) {
     return (
@@ -390,18 +447,71 @@ function UsageBarChart({ data, barClass }: { data: MonthUsage[]; barClass: strin
   }
   return (
     <div>
+      {/* Legend */}
+      <div className="mb-3 flex items-center gap-4 text-[11px] text-white/45">
+        <span className="flex items-center gap-1.5">
+          <span className={`inline-block size-2.5 rounded-sm ${leftoverClass}`} />
+          Carried over
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className={`inline-block size-2.5 rounded-sm ${refillClass}`} />
+          This month&apos;s refill
+        </span>
+      </div>
+
       <div className="flex items-end gap-2" style={{ height: 128 }}>
-        {data.map(d => {
+        {data.map((d, i) => {
           const h = (d.litres / max) * 85 // leave headroom for the value label
+          const leftoverPct = d.litres > 0 ? (d.leftoverUsed / d.litres) * 100 : 0
+          const refillPct   = d.litres > 0 ? (d.refillUsed   / d.litres) * 100 : 0
           return (
-            <div key={d.key} className="flex h-full flex-1 flex-col items-center justify-end">
+            <div
+              key={d.key}
+              className="relative flex h-full flex-1 flex-col items-center justify-end"
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(prev => (prev === i ? null : prev))}
+            >
+              {/* Tooltip */}
+              {hover === i && d.litres > 0 && (
+                <div className="surface-elevated pointer-events-none absolute bottom-full z-20 mb-1 w-40 rounded-lg p-2.5 text-left">
+                  <div className="mb-1 text-caption font-medium text-white">{d.label}</div>
+                  <div className="flex items-center justify-between text-[11px] text-white/55">
+                    <span className="flex items-center gap-1.5">
+                      <span className={`inline-block size-2 rounded-sm ${leftoverClass}`} />
+                      Carried over
+                    </span>
+                    <span className="font-mono text-white/80">{Math.round(d.leftoverUsed)} L</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-[11px] text-white/55">
+                    <span className="flex items-center gap-1.5">
+                      <span className={`inline-block size-2 rounded-sm ${refillClass}`} />
+                      This month&apos;s refill
+                    </span>
+                    <span className="font-mono text-white/80">{Math.round(d.refillUsed)} L</span>
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between border-t border-white/[0.08] pt-1.5 text-[11px] text-white/55">
+                    <span>Total used</span>
+                    <span className="font-mono text-white">{Math.round(d.litres)} L</span>
+                  </div>
+                  {d.refilled > 0 && (
+                    <div className="mt-1 flex items-center justify-between text-[11px] text-white/40">
+                      <span>Refilled this month</span>
+                      <span className="font-mono">{Math.round(d.refilled)} L</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <span className="mb-1 font-mono text-[10px] text-white/45">
                 {d.litres > 0 ? Math.round(d.litres) : ''}
               </span>
               <div
-                className={`w-full rounded-t-md transition-all duration-500 ${barClass}`}
+                className={`flex w-full flex-col justify-end overflow-hidden rounded-t-md transition-all duration-500 ${hover === i ? 'ring-1 ring-white/30' : ''}`}
                 style={{ height: `${h}%` }}
-              />
+              >
+                <div className={refillClass}   style={{ height: `${refillPct}%` }} />
+                <div className={leftoverClass} style={{ height: `${leftoverPct}%` }} />
+              </div>
             </div>
           )
         })}
@@ -419,12 +529,14 @@ function ForecastCard({
   label,
   series,
   capacity,
-  barClass,
+  leftoverClass,
+  refillClass,
 }: {
   label: string
   series: SeriesPoint[]
   capacity: number
-  barClass: string
+  leftoverClass: string
+  refillClass: string
 }) {
   const usage = monthlyUsage(series, USAGE_MONTHS)
   const { rate, reorder } = buildForecast(series, capacity)
@@ -447,7 +559,7 @@ function ForecastCard({
       </div>
 
       <div className="mt-4">
-        <UsageBarChart data={usage} barClass={barClass} />
+        <UsageBarChart data={usage} leftoverClass={leftoverClass} refillClass={refillClass} />
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 pt-4 border-t border-white/[0.06]">
@@ -581,14 +693,16 @@ export default function PlantRoomPage() {
               label="MP & LP Tank"
               series={series.mpLp}
               capacity={MP_LP_CAPACITY}
-              barClass="bg-emerald-500/55"
+              leftoverClass="bg-emerald-500/25"
+              refillClass="bg-emerald-500/65"
             />
             {hasTwoTanks && (
               <ForecastCard
                 label="18M Tank"
                 series={series.eighteenM}
                 capacity={EIGHTEEN_M_CAPACITY}
-                barClass="bg-sky-500/55"
+                leftoverClass="bg-sky-500/25"
+                refillClass="bg-sky-500/65"
               />
             )}
           </div>
