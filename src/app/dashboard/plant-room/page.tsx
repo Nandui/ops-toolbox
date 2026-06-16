@@ -156,68 +156,77 @@ function extractSeries(data: ChemApiData, siteId: number): TankSeries {
 interface MonthUsage {
   key: string
   label: string
-  litres: number       // total consumed this month (opening + refilled − closing)
-  leftoverUsed: number // of the total, the portion drawn from stock carried in
-  refillUsed: number   // of the total, the portion drawn from this month's refills
-  refilled: number     // litres added by refills during the month
-  opening: number      // level carried in at the start of the month
-  closing: number      // level carried out to the next month
+  litres: number       // total consumed = sum of daily (opening − closing)
+  leftoverUsed: number // portion consumed from stock carried in from previous month
+  refillUsed: number   // portion consumed from this month's refills
+  refilled: number     // total overnight refills during the month
+  opening: number      // first opening reading of the month
+  closing: number      // last closing reading of the month
 }
 
-/** Last known tank level at or before `ms` (series must be sorted ascending). */
-function levelAtOrBefore(series: SeriesPoint[], ms: number): number | null {
-  let level: number | null = null
+/**
+ * A single day's opening/closing pair. Readings are matched to the day they
+ * were taken; if a day has multiple openings the earliest is used, if multiple
+ * closings the latest is used.
+ */
+interface DailyRecord {
+  date: string          // YYYY-MM-DD
+  dateMs: number        // midnight epoch ms
+  opening: number | null
+  closing: number | null
+  consumed: number      // max(0, opening − closing); 0 when either is missing
+  refill: number        // overnight top-up before this morning's opening
+}
+
+/**
+ * Group a raw series into per-day opening/closing pairs.
+ *
+ * Refills are detected by comparing each morning's opening to the previous
+ * evening's closing. Any overnight increase > REFILL_THRESHOLD_L is a refill.
+ */
+function buildDailyRecords(series: SeriesPoint[]): DailyRecord[] {
+  type Entry = {
+    openingLevel: number | null; openingT: number
+    closingLevel: number | null; closingT: number
+    dateMs: number
+  }
+  const byDate = new Map<string, Entry>()
+
   for (const p of series) {
-    if (p.t <= ms) level = p.level
-    else break
+    const d    = new Date(p.t)
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const dateMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+    if (!byDate.has(date)) {
+      byDate.set(date, { openingLevel: null, openingT: Infinity, closingLevel: null, closingT: -Infinity, dateMs })
+    }
+    const rec = byDate.get(date)!
+    if (p.kind === 'opening' && p.t < rec.openingT) {
+      rec.openingLevel = p.level; rec.openingT = p.t
+    } else if (p.kind === 'closing' && p.t > rec.closingT) {
+      rec.closingLevel = p.level; rec.closingT = p.t
+    }
   }
-  return level
+
+  const sorted = [...byDate.entries()].sort((a, b) => a[1].dateMs - b[1].dateMs)
+  return sorted.map(([date, entry], i) => {
+    const opening  = entry.openingLevel
+    const closing  = entry.closingLevel
+    const consumed = opening !== null && closing !== null ? Math.max(0, opening - closing) : 0
+
+    let refill = 0
+    if (i > 0 && opening !== null) {
+      const prevClose = sorted[i - 1][1].closingLevel
+      if (prevClose !== null) {
+        const delta = opening - prevClose
+        if (delta > REFILL_THRESHOLD_L) refill = delta
+      }
+    }
+    return { date, dateMs: entry.dateMs, opening, closing, consumed, refill }
+  })
 }
 
-/**
- * Whether the increase into `series[i]` is a genuine refill rather than a
- * mis-read spike.
- *
- * Refills are usually topped up in the evening, so they legitimately show up as
- * a closing reading well above the morning opening — an increase at any time of
- * day can be real. What distinguishes a refill from a mis-read is persistence:
- * a real top-up stays elevated, while a mis-read jumps up for a single reading
- * and then falls back below the level it started from. Chlorine can't be both
- * topped up and drained past its starting point between two readings, so we
- * reject any increase whose very next reading drops below the pre-jump baseline.
- */
-function isRefillAt(series: SeriesPoint[], i: number): boolean {
-  if (i < 1) return false
-  const delta = series[i].level - series[i - 1].level
-  if (delta <= REFILL_THRESHOLD_L) return false
-  const next = series[i + 1]
-  if (next && next.level < series[i - 1].level) return false // spike artifact
-  return true
-}
-
-/** Sum of all genuine refills within a time window (mis-read spikes excluded). */
-function sumRefills(series: SeriesPoint[], fromMs: number, toMs: number): number {
-  let total = 0
-  for (let i = 1; i < series.length; i++) {
-    if (series[i].t <= fromMs || series[i].t > toMs) continue
-    if (isRefillAt(series, i)) total += series[i].level - series[i - 1].level
-  }
-  return total
-}
-
-/**
- * Per-month consumption via the inventory balance equation:
- *   consumed = opening + refills_in_month − closing
- *
- * This is immune to intermediate reading noise — only the opening and closing
- * levels matter, not every jitter in between. Stock that "carries" from one
- * month to the next is naturally handled: May's closing level is June's opening,
- * so those litres never appear in May's total.
- *
- * The carried-over / refill split uses FIFO: opening stock is consumed before
- * this month's refill.
- */
-function monthlyUsage(series: SeriesPoint[], monthsBack: number): MonthUsage[] {
+/** Aggregate daily records into per-month totals for the bar chart. */
+function monthlyUsage(records: DailyRecord[], monthsBack: number): MonthUsage[] {
   const now = new Date()
   const buckets: MonthUsage[] = []
   for (let i = monthsBack - 1; i >= 0; i--) {
@@ -234,53 +243,39 @@ function monthlyUsage(series: SeriesPoint[], monthsBack: number): MonthUsage[] {
     const monthStart = new Date(y, m,     1).getTime()
     const monthEnd   = new Date(y, m + 1, 1).getTime()
 
-    const opening = levelAtOrBefore(series, monthStart) ?? 0
-    const closing = levelAtOrBefore(series, monthEnd)   ?? opening
-    const refills = sumRefills(series, monthStart, monthEnd)
+    const month = records.filter(r => r.dateMs >= monthStart && r.dateMs < monthEnd)
+    b.litres  = month.reduce((s, r) => s + r.consumed, 0)
+    b.refilled = month.reduce((s, r) => s + r.refill,  0)
 
-    b.opening       = opening
-    b.closing       = closing
-    b.refilled      = refills
-    b.litres        = Math.max(0, opening + refills - closing)
-    b.leftoverUsed  = Math.min(b.litres, opening)
-    b.refillUsed    = Math.max(0, b.litres - b.leftoverUsed)
+    const firstOpen = month.find(r => r.opening !== null)
+    const lastClose = [...month].reverse().find(r => r.closing !== null)
+    b.opening = firstOpen?.opening ?? 0
+    b.closing = lastClose?.closing ?? 0
+
+    b.leftoverUsed = Math.min(b.litres, b.opening)
+    b.refillUsed   = Math.max(0, b.litres - b.leftoverUsed)
   }
 
   return buckets
 }
 
-/**
- * Average litres consumed per day over the most recent window, using the same
- * balance equation: (opening + refills − closing) / span_days.
- */
-function recentDailyRate(series: SeriesPoint[], windowDays: number): number | null {
-  if (series.length < 2) return null
+/** Average daily consumption over the most recent window of daily records. */
+function recentDailyRate(records: DailyRecord[], windowDays: number): number | null {
   const fromMs = Date.now() - windowDays * 86400000
-
-  let pts = series.filter(p => p.t >= fromMs)
-  if (pts.length < 2) pts = series // fall back to full history if window is sparse
-
-  const opening  = pts[0].level
-  const closing  = pts[pts.length - 1].level
-  const refills  = sumRefills(pts, pts[0].t, pts[pts.length - 1].t)
-  const spanDays = (pts[pts.length - 1].t - pts[0].t) / 86400000
-
-  if (spanDays <= 0) return null
-  const consumption = opening + refills - closing
-  return consumption > 0 ? consumption / spanDays : null
+  let window = records.filter(r => r.dateMs >= fromMs && r.consumed > 0)
+  if (window.length < 3) window = records.filter(r => r.consumed > 0)
+  if (window.length === 0) return null
+  return window.reduce((s, r) => s + r.consumed, 0) / window.length
 }
 
 interface Forecast {
   current: number | null
-  rate: number | null                 // litres/day
+  rate: number | null   // litres/day
   reorder: 'now' | { date: Date; days: number } | null
 }
 
-function buildForecast(series: SeriesPoint[], capacity: number): Forecast {
-  const current = series.length ? series[series.length - 1].level : null
-  const rate = recentDailyRate(series, RATE_WINDOW_DAYS)
+function buildForecast(current: number | null, rate: number | null, capacity: number): Forecast {
   const threshold = capacity * (WARNING_PCT / 100)
-
   let reorder: Forecast['reorder'] = null
   if (current !== null) {
     if (current <= threshold) {
@@ -518,18 +513,22 @@ function UsageBarChart({
 function ForecastCard({
   label,
   series,
+  records,
   capacity,
   leftoverClass,
   refillClass,
 }: {
   label: string
   series: SeriesPoint[]
+  records: DailyRecord[]
   capacity: number
   leftoverClass: string
   refillClass: string
 }) {
-  const usage = monthlyUsage(series, USAGE_MONTHS)
-  const { rate, reorder } = buildForecast(series, capacity)
+  const usage = monthlyUsage(records, USAGE_MONTHS)
+  const current = series.length ? series[series.length - 1].level : null
+  const rate = recentDailyRate(records, RATE_WINDOW_DAYS)
+  const { reorder } = buildForecast(current, rate, capacity)
 
   const reorderNode =
     reorder === 'now'
@@ -573,102 +572,55 @@ function ForecastCard({
   )
 }
 
-function formatStampMs(ms: number): string {
-  const d = new Date(ms)
-  return `${d.toLocaleDateString('en-IE', { day: '2-digit', month: 'short' })} ${d.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })}`
-}
 
-/**
- * Debug view: shows the raw readings driving the usage calc, plus the per-month
- * balance (opening + refilled − closing = used) so over-counted refills or
- * mis-read boundary levels are easy to spot.
- */
-function ReadingsInspector({ label, series }: { label: string; series: SeriesPoint[] }) {
-  const months = monthlyUsage(series, USAGE_MONTHS)
+function ReadingsInspector({ label, records }: { label: string; records: DailyRecord[] }) {
+  const recent = records.slice(-USAGE_MONTHS * 31) // last ~6 months
 
   return (
     <article className="surface-card p-5">
       <h3 className="text-headline text-white">{label}</h3>
+      <p className="mt-0.5 text-caption text-white/40">Daily opening / closing pairs — {recent.length} days</p>
 
-      {/* Per-month balance */}
-      <div className="mt-3 overflow-x-auto">
+      <div className="mt-3 max-h-80 overflow-y-auto">
         <table className="w-full text-left text-[12px]">
-          <thead className="text-white/40">
+          <thead className="sticky top-0 bg-[#161a24] text-white/40">
             <tr className="border-b border-white/[0.08]">
-              <th className="py-1.5 pr-3 font-medium">Month</th>
+              <th className="py-1.5 pr-3 font-medium">Date</th>
               <th className="py-1.5 pr-3 text-right font-medium">Opening</th>
-              <th className="py-1.5 pr-3 text-right font-medium">Refilled</th>
               <th className="py-1.5 pr-3 text-right font-medium">Closing</th>
-              <th className="py-1.5 text-right font-medium">Used</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Used</th>
+              <th className="py-1.5 text-right font-medium">Refill</th>
             </tr>
           </thead>
           <tbody className="font-mono text-white/75">
-            {months.map(m => (
-              <tr key={m.key} className="border-b border-white/[0.04]">
-                <td className="py-1.5 pr-3 font-sans">{m.label}</td>
-                <td className="py-1.5 pr-3 text-right">{Math.round(m.opening)}</td>
-                <td className="py-1.5 pr-3 text-right text-emerald-300">+{Math.round(m.refilled)}</td>
-                <td className="py-1.5 pr-3 text-right text-amber-300">−{Math.round(m.closing)}</td>
-                <td className="py-1.5 text-right text-white">{Math.round(m.litres)}</td>
-              </tr>
-            ))}
+            {recent.map(r => {
+              const [y, mo, d] = r.date.split('-').map(Number)
+              const label = new Date(y, mo - 1, d).toLocaleDateString('en-IE', { day: '2-digit', month: 'short' })
+              const missingOpen  = r.opening === null
+              const missingClose = r.closing === null
+              return (
+                <tr key={r.date} className="border-b border-white/[0.04]">
+                  <td className="py-1 pr-3 font-sans text-white/55">{label}</td>
+                  <td className={`py-1 pr-3 text-right ${missingOpen ? 'text-white/25 italic' : ''}`}>
+                    {r.opening !== null ? Math.round(r.opening) : '—'}
+                  </td>
+                  <td className={`py-1 pr-3 text-right ${missingClose ? 'text-white/25 italic' : ''}`}>
+                    {r.closing !== null ? Math.round(r.closing) : '—'}
+                  </td>
+                  <td className="py-1 pr-3 text-right text-white/80">
+                    {r.consumed > 0 ? Math.round(r.consumed) : '—'}
+                  </td>
+                  <td className="py-1 text-right">
+                    {r.refill > 0
+                      ? <span className="text-sky-300">+{Math.round(r.refill)}</span>
+                      : <span className="text-white/20">—</span>
+                    }
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
-      </div>
-
-      {/* Raw readings */}
-      <div className="mt-4">
-        <div className="mb-1.5 text-caption text-white/40">Raw readings ({series.length})</div>
-        <div className="max-h-72 overflow-y-auto">
-          <table className="w-full text-left text-[12px]">
-            <thead className="sticky top-0 bg-[#161a24] text-white/40">
-              <tr className="border-b border-white/[0.08]">
-                <th className="py-1.5 pr-3 font-medium">Date</th>
-                <th className="py-1.5 pr-3 font-medium">Kind</th>
-                <th className="py-1.5 pr-3 text-right font-medium">Level</th>
-                <th className="py-1.5 pr-3 text-right font-medium">Δ</th>
-                <th className="py-1.5 font-medium">Note</th>
-              </tr>
-            </thead>
-            <tbody className="font-mono text-white/75">
-              {series.map((p, i) => {
-                const delta = i === 0 ? null : p.level - series[i - 1].level
-                const isRefill = isRefillAt(series, i)
-                const isSpike  = delta !== null && delta > REFILL_THRESHOLD_L && !isRefill
-
-                const note =
-                  isRefill    ? 'Refill'
-                  : isSpike   ? 'Spike (ignored)'
-                  : delta !== null && delta < 0 ? 'Usage'
-                  : ''
-                const noteClass =
-                  isRefill      ? 'text-sky-300'
-                  : isSpike     ? 'text-amber-300'
-                  : 'text-white/30'
-                const kindLabel =
-                  p.kind === 'opening' ? 'Open'
-                  : p.kind === 'closing' ? 'Close'
-                  : '—'
-                const kindClass =
-                  p.kind === 'opening' ? 'text-white/55'
-                  : p.kind === 'closing' ? 'text-white/35'
-                  : 'text-white/20'
-
-                return (
-                  <tr key={`${p.t}-${i}`} className="border-b border-white/[0.04]">
-                    <td className="py-1 pr-3 font-sans text-white/55">{formatStampMs(p.t)}</td>
-                    <td className={`py-1 pr-3 font-sans ${kindClass}`}>{kindLabel}</td>
-                    <td className="py-1 pr-3 text-right">{Math.round(p.level)}</td>
-                    <td className={`py-1 pr-3 text-right ${delta === null ? 'text-white/30' : delta > 0 ? 'text-emerald-300' : delta < 0 ? 'text-white/60' : 'text-white/30'}`}>
-                      {delta === null ? '—' : `${delta > 0 ? '+' : ''}${Math.round(delta)}`}
-                    </td>
-                    <td className={`py-1 font-sans ${noteClass}`}>{note}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
       </div>
     </article>
   )
@@ -711,6 +663,9 @@ export default function PlantRoomPage() {
 
   const site = SITES.find(s => s.id === selectedSiteId)
   const hasTwoTanks = (site?.pools as readonly string[] | undefined)?.includes('18m') ?? false
+
+  const mpLpRecords     = buildDailyRecords(series.mpLp)
+  const eighteenMRecords = buildDailyRecords(series.eighteenM)
 
   return (
     <div className="space-y-6">
@@ -790,6 +745,7 @@ export default function PlantRoomPage() {
             <ForecastCard
               label="MP & LP Tank"
               series={series.mpLp}
+              records={mpLpRecords}
               capacity={MP_LP_CAPACITY}
               leftoverClass="bg-emerald-500/25"
               refillClass="bg-emerald-500/65"
@@ -798,6 +754,7 @@ export default function PlantRoomPage() {
               <ForecastCard
                 label="18M Tank"
                 series={series.eighteenM}
+                records={eighteenMRecords}
                 capacity={EIGHTEEN_M_CAPACITY}
                 leftoverClass="bg-sky-500/25"
                 refillClass="bg-sky-500/65"
@@ -812,8 +769,8 @@ export default function PlantRoomPage() {
         <div className="space-y-3">
           <h2 className="text-headline text-white/80">Readings &amp; balance</h2>
           <div className={`grid grid-cols-1 gap-4 ${hasTwoTanks ? 'sm:grid-cols-2' : ''}`}>
-            <ReadingsInspector label="MP & LP Tank" series={series.mpLp} />
-            {hasTwoTanks && <ReadingsInspector label="18M Tank" series={series.eighteenM} />}
+            <ReadingsInspector label="MP & LP Tank" records={mpLpRecords} />
+            {hasTwoTanks && <ReadingsInspector label="18M Tank" records={eighteenMRecords} />}
           </div>
         </div>
       )}
