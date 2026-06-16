@@ -175,23 +175,23 @@ function levelAtOrBefore(series: SeriesPoint[], ms: number): number | null {
 }
 
 /**
- * Whether the increase into `series[i]` is a genuine refill.
+ * Whether the increase into `series[i]` is a genuine refill rather than a
+ * mis-read spike.
  *
- * Two independent checks reject false positives:
- *  1. Operating-hours impossibility: the tank can only drain during the day
- *     (opening → closing), so any level increase in that window is bad data.
- *  2. Spike artifact: a jump that immediately falls back below its own starting
- *     point is a mis-read — a real top-up stays elevated.
+ * Refills are usually topped up in the evening, so they legitimately show up as
+ * a closing reading well above the morning opening — an increase at any time of
+ * day can be real. What distinguishes a refill from a mis-read is persistence:
+ * a real top-up stays elevated, while a mis-read jumps up for a single reading
+ * and then falls back below the level it started from. Chlorine can't be both
+ * topped up and drained past its starting point between two readings, so we
+ * reject any increase whose very next reading drops below the pre-jump baseline.
  */
 function isRefillAt(series: SeriesPoint[], i: number): boolean {
   if (i < 1) return false
   const delta = series[i].level - series[i - 1].level
   if (delta <= REFILL_THRESHOLD_L) return false
-  // Tank can only lose chlorine during operating hours, never gain it.
-  if (series[i - 1].kind === 'opening' && series[i].kind === 'closing') return false
-  // Spike: next reading drops below the pre-jump baseline.
   const next = series[i + 1]
-  if (next && next.level < series[i - 1].level) return false
+  if (next && next.level < series[i - 1].level) return false // spike artifact
   return true
 }
 
@@ -635,26 +635,15 @@ function ReadingsInspector({ label, series }: { label: string; series: SeriesPoi
                 const delta = i === 0 ? null : p.level - series[i - 1].level
                 const isRefill = isRefillAt(series, i)
                 const isSpike  = delta !== null && delta > REFILL_THRESHOLD_L && !isRefill
-                // Flag closings that are higher than the preceding opening on the same day.
-                const prevOpening = series.slice(0, i).reverse().find(q => q.kind === 'opening')
-                const sameDay = (a: number, b: number) =>
-                  new Date(a).toDateString() === new Date(b).toDateString()
-                const isAnomalous =
-                  p.kind === 'closing' &&
-                  prevOpening &&
-                  sameDay(p.t, prevOpening.t) &&
-                  p.level > prevOpening.level
 
                 const note =
                   isRefill    ? 'Refill'
                   : isSpike   ? 'Spike (ignored)'
-                  : isAnomalous ? 'Closing > opening ⚠'
                   : delta !== null && delta < 0 ? 'Usage'
                   : ''
                 const noteClass =
                   isRefill      ? 'text-sky-300'
                   : isSpike     ? 'text-amber-300'
-                  : isAnomalous ? 'text-red-300'
                   : 'text-white/30'
                 const kindLabel =
                   p.kind === 'opening' ? 'Open'
