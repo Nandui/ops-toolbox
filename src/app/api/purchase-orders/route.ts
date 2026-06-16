@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { listPoRequests, createPoRequest } from '@/lib/notion/purchase-orders'
+import { listPoRequests, createPoRequest, MAX_QUOTE_BYTES } from '@/lib/notion/purchase-orders'
 import type { PoSite, PoUrgency } from '@/lib/notion/purchase-orders'
 
 export async function GET() {
@@ -29,16 +29,23 @@ export async function POST(request: NextRequest) {
     const supplier    = (form.get('supplier') as string | null)?.trim()
     const urgency     = form.get('urgency') as PoUrgency | null
     const valueStr    = form.get('value') as string | null
+    const quote       = form.get('quote') as File | null
 
     if (!description || !site || !supplier || !urgency || !valueStr) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+    if (!quote || quote.size === 0) {
+      return NextResponse.json({ error: 'A quote document is required' }, { status: 400 })
+    }
+    if (quote.size > MAX_QUOTE_BYTES) {
+      return NextResponse.json({ error: 'Quote file must be 20 MB or smaller' }, { status: 400 })
     }
     const value = parseFloat(valueStr)
     if (isNaN(value) || value <= 0) {
       return NextResponse.json({ error: 'Value must be a positive number' }, { status: 400 })
     }
 
-    const po = await createPoRequest({ description, site, supplier, urgency, value, requestedBy: session.name })
+    const po = await createPoRequest({ description, site, supplier, urgency, value, requestedBy: session.name, quote })
     return NextResponse.json({ purchaseOrder: po }, { status: 201 })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
