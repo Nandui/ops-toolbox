@@ -135,10 +135,12 @@ function extractSeries(data: ChemApiData, siteId: number): TankSeries {
 interface MonthUsage {
   key: string
   label: string
-  litres: number       // total consumed this month
+  litres: number       // total consumed this month (opening + refilled − closing)
   leftoverUsed: number // of the total, the portion drawn from stock carried in
   refillUsed: number   // of the total, the portion drawn from this month's refills
   refilled: number     // litres added by refills during the month
+  opening: number      // level carried in at the start of the month
+  closing: number      // level carried out to the next month
 }
 
 /** Last known tank level at or before `ms` (series must be sorted ascending). */
@@ -182,7 +184,7 @@ function monthlyUsage(series: SeriesPoint[], monthsBack: number): MonthUsage[] {
     buckets.push({
       key:   `${d.getFullYear()}-${d.getMonth()}`,
       label: d.toLocaleDateString('en-IE', { month: 'short' }),
-      litres: 0, leftoverUsed: 0, refillUsed: 0, refilled: 0,
+      litres: 0, leftoverUsed: 0, refillUsed: 0, refilled: 0, opening: 0, closing: 0,
     })
   }
 
@@ -195,6 +197,8 @@ function monthlyUsage(series: SeriesPoint[], monthsBack: number): MonthUsage[] {
     const closing = levelAtOrBefore(series, monthEnd)   ?? opening
     const refills = sumRefills(series, monthStart, monthEnd)
 
+    b.opening       = opening
+    b.closing       = closing
     b.refilled      = refills
     b.litres        = Math.max(0, opening + refills - closing)
     b.leftoverUsed  = Math.min(b.litres, opening)
@@ -425,32 +429,25 @@ function UsageBarChart({
             >
               {/* Tooltip */}
               {hover === i && d.litres > 0 && (
-                <div className="surface-elevated pointer-events-none absolute bottom-full z-20 mb-1 w-40 rounded-lg p-2.5 text-left">
-                  <div className="mb-1 text-caption font-medium text-white">{d.label}</div>
+                <div className="surface-elevated pointer-events-none absolute bottom-full z-20 mb-1 w-44 rounded-lg p-2.5 text-left">
+                  <div className="mb-1.5 text-caption font-medium text-white">{d.label}</div>
+                  {/* Inventory balance: opening + refilled − closing = used */}
                   <div className="flex items-center justify-between text-[11px] text-white/55">
-                    <span className="flex items-center gap-1.5">
-                      <span className={`inline-block size-2 rounded-sm ${leftoverClass}`} />
-                      Carried over
-                    </span>
-                    <span className="font-mono text-white/80">{Math.round(d.leftoverUsed)} L</span>
+                    <span>Opening stock</span>
+                    <span className="font-mono text-white/80">{Math.round(d.opening)} L</span>
                   </div>
                   <div className="mt-1 flex items-center justify-between text-[11px] text-white/55">
-                    <span className="flex items-center gap-1.5">
-                      <span className={`inline-block size-2 rounded-sm ${refillClass}`} />
-                      This month&apos;s refill
-                    </span>
-                    <span className="font-mono text-white/80">{Math.round(d.refillUsed)} L</span>
+                    <span>Refilled</span>
+                    <span className="font-mono text-emerald-300">+{Math.round(d.refilled)} L</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-[11px] text-white/55">
+                    <span>Carried to next month</span>
+                    <span className="font-mono text-amber-300">−{Math.round(d.closing)} L</span>
                   </div>
                   <div className="mt-1.5 flex items-center justify-between border-t border-white/[0.08] pt-1.5 text-[11px] text-white/55">
-                    <span>Total used</span>
+                    <span>Used this month</span>
                     <span className="font-mono text-white">{Math.round(d.litres)} L</span>
                   </div>
-                  {d.refilled > 0 && (
-                    <div className="mt-1 flex items-center justify-between text-[11px] text-white/40">
-                      <span>Refilled this month</span>
-                      <span className="font-mono">{Math.round(d.refilled)} L</span>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -535,6 +532,87 @@ function ForecastCard({
   )
 }
 
+function formatStampMs(ms: number): string {
+  const d = new Date(ms)
+  return `${d.toLocaleDateString('en-IE', { day: '2-digit', month: 'short' })} ${d.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })}`
+}
+
+/**
+ * Debug view: shows the raw readings driving the usage calc, plus the per-month
+ * balance (opening + refilled − closing = used) so over-counted refills or
+ * mis-read boundary levels are easy to spot.
+ */
+function ReadingsInspector({ label, series }: { label: string; series: SeriesPoint[] }) {
+  const months = monthlyUsage(series, USAGE_MONTHS)
+
+  return (
+    <article className="surface-card p-5">
+      <h3 className="text-headline text-white">{label}</h3>
+
+      {/* Per-month balance */}
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-left text-[12px]">
+          <thead className="text-white/40">
+            <tr className="border-b border-white/[0.08]">
+              <th className="py-1.5 pr-3 font-medium">Month</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Opening</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Refilled</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Closing</th>
+              <th className="py-1.5 text-right font-medium">Used</th>
+            </tr>
+          </thead>
+          <tbody className="font-mono text-white/75">
+            {months.map(m => (
+              <tr key={m.key} className="border-b border-white/[0.04]">
+                <td className="py-1.5 pr-3 font-sans">{m.label}</td>
+                <td className="py-1.5 pr-3 text-right">{Math.round(m.opening)}</td>
+                <td className="py-1.5 pr-3 text-right text-emerald-300">+{Math.round(m.refilled)}</td>
+                <td className="py-1.5 pr-3 text-right text-amber-300">−{Math.round(m.closing)}</td>
+                <td className="py-1.5 text-right text-white">{Math.round(m.litres)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Raw readings */}
+      <div className="mt-4">
+        <div className="mb-1.5 text-caption text-white/40">Raw readings ({series.length})</div>
+        <div className="max-h-72 overflow-y-auto">
+          <table className="w-full text-left text-[12px]">
+            <thead className="sticky top-0 bg-[#161a24] text-white/40">
+              <tr className="border-b border-white/[0.08]">
+                <th className="py-1.5 pr-3 font-medium">Date</th>
+                <th className="py-1.5 pr-3 text-right font-medium">Level</th>
+                <th className="py-1.5 pr-3 text-right font-medium">Δ</th>
+                <th className="py-1.5 font-medium">Type</th>
+              </tr>
+            </thead>
+            <tbody className="font-mono text-white/75">
+              {series.map((p, i) => {
+                const delta = i === 0 ? null : p.level - series[i - 1].level
+                const isRefill = delta !== null && delta > REFILL_THRESHOLD_L
+                return (
+                  <tr key={`${p.t}-${i}`} className="border-b border-white/[0.04]">
+                    <td className="py-1 pr-3 font-sans text-white/55">{formatStampMs(p.t)}</td>
+                    <td className="py-1 pr-3 text-right">{Math.round(p.level)}</td>
+                    <td className={`py-1 pr-3 text-right ${delta === null ? 'text-white/30' : delta > 0 ? 'text-emerald-300' : delta < 0 ? 'text-white/60' : 'text-white/30'}`}>
+                      {delta === null ? '—' : `${delta > 0 ? '+' : ''}${Math.round(delta)}`}
+                    </td>
+                    <td className={`py-1 font-sans ${isRefill ? 'text-sky-300' : 'text-white/30'}`}>
+                      {isRefill ? 'Refill' : delta !== null && delta < 0 ? 'Usage' : ''}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </article>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PlantRoomPage() {
@@ -543,6 +621,7 @@ export default function PlantRoomPage() {
   const [loading,      setLoading]      = useState(true)
   const [error,        setError]        = useState<string | null>(null)
   const [selectedSiteId, setSelectedSiteId] = useState<number>(SITES[0].id)
+  const [showReadings, setShowReadings] = useState(false)
 
   const fetchData = useCallback(async (siteId: number) => {
     setLoading(true)
@@ -591,6 +670,12 @@ export default function PlantRoomPage() {
           >
             {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
+          <button
+            onClick={() => setShowReadings(s => !s)}
+            className="flex items-center gap-2 h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white/60 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
+            {showReadings ? 'Hide readings' : 'Show readings'}
+          </button>
           <button
             onClick={() => fetchData(selectedSiteId)}
             disabled={loading}
@@ -657,6 +742,17 @@ export default function PlantRoomPage() {
                 refillClass="bg-sky-500/65"
               />
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Readings inspector (debug) */}
+      {!loading && stockReading && showReadings && (
+        <div className="space-y-3">
+          <h2 className="text-headline text-white/80">Readings &amp; balance</h2>
+          <div className={`grid grid-cols-1 gap-4 ${hasTwoTanks ? 'sm:grid-cols-2' : ''}`}>
+            <ReadingsInspector label="MP & LP Tank" series={series.mpLp} />
+            {hasTwoTanks && <ReadingsInspector label="18M Tank" series={series.eighteenM} />}
           </div>
         </div>
       )}
