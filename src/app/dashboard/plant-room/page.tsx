@@ -21,18 +21,23 @@ interface StockReading {
   time: string | null
 }
 
-// ── Thresholds (kg) ───────────────────────────────────────────────────────────
+// ── Tank capacities & thresholds ──────────────────────────────────────────────
+// Values from Trail are in litres. Each tank has its own capacity, so status is
+// based on the fill percentage rather than an absolute litre threshold.
 
-const CRITICAL_KG = 20
-const WARNING_KG  = 50
-const DISPLAY_MAX = 200
+const MP_LP_CAPACITY  = 500 // litres
+const EIGHTEEN_M_CAPACITY = 250 // litres
+
+const CRITICAL_PCT = 15
+const WARNING_PCT  = 30
 
 type StockStatus = 'critical' | 'warning' | 'ok' | 'unknown'
 
-function getStatus(value: number | null): StockStatus {
+function getStatus(value: number | null, capacity: number): StockStatus {
   if (value === null) return 'unknown'
-  if (value < CRITICAL_KG) return 'critical'
-  if (value < WARNING_KG)  return 'warning'
+  const pct = (value / capacity) * 100
+  if (pct < CRITICAL_PCT) return 'critical'
+  if (pct < WARNING_PCT)  return 'warning'
   return 'ok'
 }
 
@@ -125,15 +130,17 @@ function TankCard({
   label,
   description,
   value,
+  capacity,
   readingTime,
 }: {
   label: string
   description: string
   value: number | null
+  capacity: number
   readingTime: string | null
 }) {
-  const status   = getStatus(value)
-  const fillPct  = value !== null ? Math.min(100, (value / DISPLAY_MAX) * 100) : 0
+  const status   = getStatus(value, capacity)
+  const fillPct  = value !== null ? Math.min(100, (value / capacity) * 100) : 0
 
   const statusLabel =
     status === 'critical' ? 'Critical — Reorder now'
@@ -181,7 +188,7 @@ function TankCard({
               </span>
             </div>
           </div>
-          <span className="text-caption text-white/30">of {DISPLAY_MAX} kg</span>
+          <span className="text-caption text-white/30">of {capacity} L</span>
         </div>
 
         {/* Numeric value */}
@@ -189,11 +196,11 @@ function TankCard({
           <div className="font-mono leading-none text-white" style={{ fontSize: 'clamp(40px, 5vw, 60px)' }}>
             {value !== null ? Math.round(value) : '—'}
             {value !== null && (
-              <span className="ml-2 text-2xl text-white/40">kg</span>
+              <span className="ml-2 text-2xl text-white/40">L</span>
             )}
           </div>
           <div className="mt-3 space-y-1 text-caption text-white/35">
-            <div>Target ≥ {WARNING_KG} kg · Critical &lt; {CRITICAL_KG} kg</div>
+            <div>Capacity {capacity} L · Critical below {CRITICAL_PCT}%</div>
             {readingTime
               ? <div>Last reading: {readingTime}</div>
               : <div>No reading found in the last 7 days</div>
@@ -288,6 +295,7 @@ export default function PlantRoomPage() {
             label="MP & LP Tank"
             description="Main Pool + Learners Pool dosing"
             value={stockReading.mpLpChlorine}
+            capacity={MP_LP_CAPACITY}
             readingTime={readingTime}
           />
           {hasTwoTanks && (
@@ -295,6 +303,7 @@ export default function PlantRoomPage() {
               label="18M Tank"
               description="18 Metre Pool dosing"
               value={stockReading.eighteenMChlorine}
+              capacity={EIGHTEEN_M_CAPACITY}
               readingTime={readingTime}
             />
           )}
