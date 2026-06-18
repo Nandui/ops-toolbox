@@ -1,7 +1,7 @@
 'use client'
 
 import { useAuth } from '@/components/auth/AuthProvider'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { USER_ROLES, ROLE_LABELS, SITES } from '@/lib/portal'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -252,16 +252,36 @@ export default function UsersPage() {
   const { user, isAdmin } = useAuth()
   const [users, setUsers]   = useState<UserInfo[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [modal, setModal]   = useState<'add' | UserInfo | null>(null)
   const [toast, setToast]   = useState<string | null>(null)
 
+  const loadUsers = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 12000)
+    try {
+      const res = await fetch('/api/admin/users', { signal: controller.signal, cache: 'no-store' })
+      if (!res.ok) throw new Error(`Request failed (${res.status})`)
+      const data = await res.json()
+      setUsers(Array.isArray(data) ? data : [])
+    } catch (err) {
+      setLoadError(
+        err instanceof DOMException && err.name === 'AbortError'
+          ? 'Timed out loading users. The server took too long to respond.'
+          : err instanceof Error ? err.message : 'Could not load users.'
+      )
+    } finally {
+      clearTimeout(timeout)
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!isAdmin) return
-    fetch('/api/admin/users')
-      .then(r => r.ok ? r.json() : [])
-      .then(data => { setUsers(data); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [isAdmin])
+    void loadUsers()
+  }, [isAdmin, loadUsers])
 
   if (!user || !isAdmin) {
     return (
@@ -319,6 +339,13 @@ export default function UsersPage() {
       {/* Table */}
       {loading ? (
         <LoadingState label="Loading users…" />
+      ) : loadError ? (
+        <div className="surface-card flex flex-col items-center gap-3 px-6 py-12 text-center">
+          <p className="text-sm text-destructive">{loadError}</p>
+          <Button variant="tertiary" size="sm" onClick={() => void loadUsers()}>
+            Try again
+          </Button>
+        </div>
       ) : (
         <article className="surface-card overflow-hidden">
           <div className="overflow-x-auto">
