@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { CheckCircle, XCircle, ArrowLeft, Clock, Paperclip, FileText, Upload } from 'lucide-react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { Button } from '@/components/ui/button'
@@ -84,7 +85,9 @@ function ApproveModal({
     onDone(action === 'approve' ? `Approved — PO ${poCode.trim()}` : 'Request rejected.')
   }
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm">
       <div
         className="flex min-h-full items-end justify-center p-4 sm:items-center"
@@ -204,7 +207,8 @@ function ApproveModal({
         )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

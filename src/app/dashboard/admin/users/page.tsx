@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { USER_ROLES, ROLE_LABELS, SITES } from '@/lib/portal'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Button } from '@/components/ui/button'
@@ -93,7 +94,9 @@ function UserModal({
     onSaved(data as UserInfo)
   }
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm">
       <div
         className="flex min-h-full items-end justify-center p-4 sm:items-center"
@@ -238,7 +241,8 @@ function UserModal({
 
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
