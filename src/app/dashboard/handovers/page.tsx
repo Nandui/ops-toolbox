@@ -5,6 +5,7 @@ import { RefreshCw, MapPin, User, Calendar, ClipboardList } from 'lucide-react'
 import type { TrailTaskInstance, TrailRecordLog } from '@/lib/trail/client'
 import { LoadingState } from '@/components/ui/loading-state'
 import { EmptyState } from '@/components/ui/empty-state'
+import { fetchWithTimeout, loadErrorMessage } from '@/lib/fetch'
 
 type PillLevel = 'ok' | 'pending' | 'neutral'
 
@@ -81,13 +82,13 @@ export default function HandoversPage() {
     try {
       const endDate = new Date().toISOString().split('T')[0]
       const startDate = new Date(Date.now() - days * 86400000).toISOString().split('T')[0]
-      const res = await fetch(`/api/trail/handovers?startDate=${startDate}&endDate=${endDate}`)
+      const res = await fetchWithTimeout(`/api/trail/handovers?startDate=${startDate}&endDate=${endDate}`)
       if (!res.ok) throw new Error(`API error: ${res.status}`)
       const data = await res.json()
       setHandovers(data.instances || [])
       setDetails(data.recordLogs || {})
     } catch (err) {
-      setError(String(err))
+      setError(loadErrorMessage(err))
     } finally {
       setLoading(false)
     }

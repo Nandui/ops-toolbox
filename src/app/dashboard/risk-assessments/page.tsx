@@ -15,6 +15,7 @@ import { Timeline, type TimelineEntry } from '@/components/ui/timeline'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet'
+import { fetchWithTimeout, loadErrorMessage } from '@/lib/fetch'
 
 // ── Types ────────────────────────────────────────────────────────────────────────
 
@@ -258,13 +259,13 @@ export default function RiskAssessmentsPage() {
     setError(null)
     if (mode === 'initial') setLoading(true); else setRefreshing(true)
     try {
-      const res = await fetch('/api/notion/risk-assessments', { cache: 'no-store' })
+      const res = await fetchWithTimeout('/api/notion/risk-assessments', { cache: 'no-store' })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || `API error: ${res.status}`)
       setAssessments(data.assessments || [])
       setMeta(data.meta || null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(loadErrorMessage(err))
     } finally {
       setLoading(false); setRefreshing(false)
     }

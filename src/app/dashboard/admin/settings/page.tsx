@@ -3,6 +3,8 @@
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useState, useEffect } from 'react'
 import { SITES } from '@/lib/portal'
+import { Button } from '@/components/ui/button'
+import { fetchWithTimeout, loadErrorMessage } from '@/lib/fetch'
 import { CheckCircle2, Eye, EyeOff, RefreshCw } from 'lucide-react'
 
 interface Setting {
@@ -16,6 +18,7 @@ export default function SettingsPage() {
   const { user, isAdmin } = useAuth()
   const [settings, setSettings] = useState<Setting[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [notionKey, setNotionKey] = useState('')
   const [showKey, setShowKey] = useState(false)
@@ -25,10 +28,11 @@ export default function SettingsPage() {
 
   function loadSettings() {
     setLoading(true)
-    fetch('/api/admin/settings')
+    setLoadError(null)
+    fetchWithTimeout('/api/admin/settings')
       .then(r => r.ok ? r.json() : [])
       .then((data: Setting[]) => { setSettings(data); setLoading(false) })
-      .catch(() => setLoading(false))
+      .catch(err => { setLoadError(loadErrorMessage(err)); setLoading(false) })
   }
 
   useEffect(() => {
@@ -80,6 +84,13 @@ export default function SettingsPage() {
 
       {/* ── Header ─────────────────────────────────────────────────────────────── */}
       <h1 className="text-title">Settings</h1>
+
+      {loadError && (
+        <div className="surface-card space-y-3 p-5">
+          <p className="text-sm text-destructive">{loadError}</p>
+          <Button variant="tertiary" size="sm" onClick={() => loadSettings()}>Try again</Button>
+        </div>
+      )}
 
       {/* ── Notion Integration ─────────────────────────────────────────────────── */}
       <div className="space-y-2">

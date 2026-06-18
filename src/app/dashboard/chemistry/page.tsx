@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { RefreshCw, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { LoadingState } from '@/components/ui/loading-state'
+import { fetchWithTimeout, loadErrorMessage } from '@/lib/fetch'
 import { SITES } from '@/lib/portal'
 import type { TrailTaskInstance, TrailRecordLog } from '@/lib/trail/client'
 
@@ -472,8 +473,8 @@ export default function ChemistryPage() {
       const today = todayDateKey()
       const sevenDaysAgo = formatDateKey(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
       const [chemRes, batherRes] = await Promise.all([
-        fetch(`/api/trail/chemistry?startDate=${sevenDaysAgo}&endDate=${today}`),
-        fetch('/api/trail/bather-loads'),
+        fetchWithTimeout(`/api/trail/chemistry?startDate=${sevenDaysAgo}&endDate=${today}`),
+        fetchWithTimeout('/api/trail/bather-loads'),
       ])
       if (!chemRes.ok) throw new Error(`Chemistry API error: ${chemRes.status}`)
       if (!batherRes.ok) throw new Error(`Bather loads API error: ${batherRes.status}`)
@@ -484,7 +485,7 @@ export default function ChemistryPage() {
       setLiveReadings(extractReadings(chemData as ChemApiData))
       setBatherData(parseBatherLoads(batherRaw.instances ?? [], batherRaw.recordLogs ?? {}))
     } catch (err) {
-      setLiveError(String(err))
+      setLiveError(loadErrorMessage(err))
     } finally {
       setLiveLoading(false)
     }

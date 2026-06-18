@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, BarChart3 } from 'lucide-react'
 import { LoadingState } from '@/components/ui/loading-state'
 import { EmptyState } from '@/components/ui/empty-state'
+import { fetchWithTimeout, loadErrorMessage } from '@/lib/fetch'
 
 interface TrailScore {
   id: number
@@ -40,12 +41,12 @@ export default function ScoresPage() {
     try {
       const endDate = new Date().toISOString().split('T')[0]
       const startDate = new Date(Date.now() - days * 86400000).toISOString().split('T')[0]
-      const res = await fetch(`/api/trail/scores?startDate=${startDate}&endDate=${endDate}&interval=${interval}`)
+      const res = await fetchWithTimeout(`/api/trail/scores?startDate=${startDate}&endDate=${endDate}&interval=${interval}`)
       if (!res.ok) throw new Error(`API error: ${res.status}`)
       const data = await res.json()
       setScores(data.scores || [])
     } catch (err) {
-      setError(String(err))
+      setError(loadErrorMessage(err))
     } finally {
       setLoading(false)
     }

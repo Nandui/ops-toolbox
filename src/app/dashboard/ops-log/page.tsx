@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { RefreshCw, Plus, Trash2, Save, Copy, Printer, Lock, History, ChevronDown, ChevronUp, Download } from 'lucide-react'
 import { SITES } from '@/lib/portal'
+import { fetchWithTimeout, loadErrorMessage } from '@/lib/fetch'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatusBanner } from '@/components/ui/status-banner'
@@ -374,7 +375,7 @@ export default function OpsLogPage() {
   const fetchLog = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const res = await fetch(`/api/ops-log?date=${date}&siteId=${siteId}`)
+      const res = await fetchWithTimeout(`/api/ops-log?date=${date}&siteId=${siteId}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (json.log) {
@@ -387,7 +388,7 @@ export default function OpsLogPage() {
         setChanges([])
       }
       setDirty(false)
-    } catch (e) { setError(String(e)) }
+    } catch (e) { setError(loadErrorMessage(e)) }
     finally { setLoading(false) }
   }, [date, siteId, applyResponse])
 
@@ -427,27 +428,27 @@ export default function OpsLogPage() {
   const copyPrev = useCallback(async () => {
     const prev = prevDayKey(date)
     try {
-      const res = await fetch(`/api/ops-log?date=${prev}&siteId=${siteId}`)
+      const res = await fetchWithTimeout(`/api/ops-log?date=${prev}&siteId=${siteId}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!json.log) { setError(`No log found for ${prev}`); return }
       const stored: OpsLogData = json.log
       setLog({ sections: mergeStoredSections(stored), poolBookings: stored.poolBookings ?? '', gymBookings: stored.gymBookings ?? '' })
       setDirty(true)
-    } catch (e) { setError(String(e)) }
+    } catch (e) { setError(loadErrorMessage(e)) }
   }, [date, siteId])
 
   const loadPlan = useCallback(async () => {
     setLoadingPlan(true); setError(null)
     try {
-      const res = await fetch(`/api/dept-plan?date=${date}&siteId=${siteId}`)
+      const res = await fetchWithTimeout(`/api/dept-plan?date=${date}&siteId=${siteId}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!json.plan) { setError('No department plan found for this date. Create one in the Dept Plan page first.'); return }
       setLog(l => mergePlanIntoLog(l, json.plan as DeptPlanData))
       setPlanBanner(`Loaded from dept plan (saved by ${json.updatedBy ?? 'supervisor'} · ${formatStamp(json.updatedAt)})`)
       setDirty(true)
-    } catch (e) { setError(String(e)) }
+    } catch (e) { setError(loadErrorMessage(e)) }
     finally { setLoadingPlan(false) }
   }, [date, siteId])
 

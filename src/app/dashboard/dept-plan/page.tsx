@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Plus, Trash2, Save, Clock, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { SITES } from '@/lib/portal'
+import { fetchWithTimeout, loadErrorMessage } from '@/lib/fetch'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -178,7 +179,7 @@ export default function DeptPlanPage() {
   const fetchPlan = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const res = await fetch(`/api/dept-plan?date=${date}&siteId=${siteId}`)
+      const res = await fetchWithTimeout(`/api/dept-plan?date=${date}&siteId=${siteId}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (json.plan) {
@@ -194,7 +195,7 @@ export default function DeptPlanPage() {
         setMeta({ updatedBy: null, updatedAt: null })
       }
       setDirty(false)
-    } catch (e) { setError(String(e)) }
+    } catch (e) { setError(loadErrorMessage(e)) }
     finally { setLoading(false) }
   }, [date, siteId])
 

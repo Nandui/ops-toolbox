@@ -12,6 +12,7 @@ import { SITES } from '@/lib/portal'
 import { PageHeader, SectionHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { StatusPill, inferTone } from '@/components/ui/status-pill'
+import { fetchWithTimeout } from '@/lib/fetch'
 
 const MONITOR_CARDS = [
   { href: '/dashboard/chemistry',  label: 'Pool Chemistry', desc: 'Chlorine, pH & temperature', icon: FlaskConical },
@@ -97,7 +98,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let active = true
-    fetch('/api/notion/risk-assessments', { cache: 'no-store' })
+    fetchWithTimeout('/api/notion/risk-assessments', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(d => { if (active) { setRisks(d.assessments || []); setRisksLoaded(true) } })
       .catch(() => { if (active) setRisksLoaded(true) })

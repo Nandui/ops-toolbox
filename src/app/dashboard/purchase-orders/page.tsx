@@ -6,6 +6,7 @@ import { CheckCircle, XCircle, ArrowLeft, Clock, Paperclip, FileText, Upload } f
 import { useAuth } from '@/components/auth/AuthProvider'
 import { Button } from '@/components/ui/button'
 import { StatusBanner } from '@/components/ui/status-banner'
+import { fetchWithTimeout, loadErrorMessage } from '@/lib/fetch'
 import type { PoRequest, PoStatus } from '@/lib/notion/purchase-orders'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -538,14 +539,22 @@ export default function PurchaseOrdersPage() {
   const [tab, setTab]           = useState<Tab>('submit')
   const [pos, setPos]           = useState<PoRequest[]>([])
   const [loading, setLoading]   = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [reviewing, setReviewing] = useState<PoRequest | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/purchase-orders')
-    if (res.ok) setPos((await res.json()).purchaseOrders ?? [])
-    setLoading(false)
+    setLoadError(null)
+    try {
+      const res = await fetchWithTimeout('/api/purchase-orders')
+      if (res.ok) setPos((await res.json()).purchaseOrders ?? [])
+      else setLoadError(loadErrorMessage(new Error(`Error ${res.status}`)))
+    } catch (err) {
+      setLoadError(loadErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -565,6 +574,13 @@ export default function PurchaseOrdersPage() {
 
       {feedback && (
         <StatusBanner variant="success" onDismiss={() => setFeedback(null)}>{feedback}</StatusBanner>
+      )}
+
+      {loadError && (
+        <div className="surface-card space-y-3 p-5">
+          <p className="text-sm text-destructive">{loadError}</p>
+          <Button variant="tertiary" size="sm" onClick={() => load()}>Try again</Button>
+        </div>
       )}
 
       {/* Tabs */}

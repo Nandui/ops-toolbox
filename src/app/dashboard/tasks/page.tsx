@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { LoadingState } from '@/components/ui/loading-state'
 import { EmptyState } from '@/components/ui/empty-state'
 import { StatusBanner } from '@/components/ui/status-banner'
+import { fetchWithTimeout, loadErrorMessage } from '@/lib/fetch'
 
 interface TaskInstance {
   taskInstanceId: number
@@ -72,12 +73,12 @@ export default function TasksPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/trail/tasks?date=${date}`)
+      const res = await fetchWithTimeout(`/api/trail/tasks?date=${date}`)
       if (!res.ok) throw new Error(`API error: ${res.status}`)
       const data = await res.json()
       setTasks(data.instances || [])
     } catch (err) {
-      setError(String(err))
+      setError(loadErrorMessage(err))
     } finally {
       setLoading(false)
     }

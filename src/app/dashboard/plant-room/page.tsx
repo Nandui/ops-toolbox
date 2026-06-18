@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { LoadingState } from '@/components/ui/loading-state'
+import { fetchWithTimeout, loadErrorMessage } from '@/lib/fetch'
 import { SITES } from '@/lib/portal'
 import type { TrailTaskInstance, TrailRecordLog } from '@/lib/trail/client'
 
@@ -223,14 +224,14 @@ export default function PlantRoomPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `/api/trail/chemistry?startDate=${daysAgoKey(HISTORY_DAYS)}&endDate=${todayKey()}`
       )
       if (!res.ok) throw new Error(`API error: ${res.status}`)
       const data = await res.json() as ChemApiData
       setStockReading(extractStockReading(data, siteId))
     } catch (err) {
-      setError(String(err))
+      setError(loadErrorMessage(err))
     } finally {
       setLoading(false)
     }

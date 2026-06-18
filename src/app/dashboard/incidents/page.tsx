@@ -14,6 +14,7 @@ import {
   Tag,
   User,
 } from 'lucide-react'
+import { fetchWithTimeout, loadErrorMessage } from '@/lib/fetch'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -156,14 +157,14 @@ export default function IncidentsPage() {
     if (mode === 'initial') setLoading(true)
     else setRefreshing(true)
     try {
-      const res = await fetch('/api/notion/incidents', { cache: 'no-store' })
+      const res = await fetchWithTimeout('/api/notion/incidents', { cache: 'no-store' })
       if (!res.ok) throw new Error(`API error: ${res.status}`)
       const data: IncidentsApiResponse = await res.json()
       setIncidents(data.incidents || [])
       setOptions(data.options || { sites: [], categories: [], severities: [], areas: [] })
       setReporter(data.reporter)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(loadErrorMessage(err))
     } finally {
       setLoading(false)
       setRefreshing(false)
