@@ -66,14 +66,14 @@ function AttentionTile({
   return (
     <Link
       href={href}
-      className="surface-card group flex items-center gap-4 p-4 transition-shadow hover:shadow-[0_4px_16px_rgb(2_6_23/0.08)]"
+      className="surface-card group flex items-center gap-4 p-4 transition-[box-shadow,border-color] hover:border-foreground/15 hover:shadow-[0_4px_16px_rgb(2_6_23/0.08)]"
     >
       <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${iconWrap}`}>
         <Icon className="size-5" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <span className={`font-mono text-2xl leading-none font-medium ${accent}`}>{value}</span>
+          <span className={`text-2xl leading-none font-semibold tabular-nums tracking-tight ${accent}`}>{value}</span>
           <span className="text-subhead text-foreground">{label}</span>
         </div>
         <p className="mt-1 truncate text-caption text-muted-foreground">{hint}</p>
@@ -243,7 +243,7 @@ export default function DashboardPage() {
             <Link
               key={card.href}
               href={card.href}
-              className="surface-card group flex flex-col gap-3 p-4 transition-shadow hover:shadow-[0_4px_16px_rgb(2_6_23/0.08)]"
+              className="surface-card group flex flex-col gap-3 p-4 transition-[box-shadow,border-color] hover:border-foreground/15 hover:shadow-[0_4px_16px_rgb(2_6_23/0.08)]"
             >
               <card.icon className="size-5 text-muted-foreground/70 transition-colors group-hover:text-primary" />
               <div className="flex-1">

@@ -86,7 +86,7 @@ function Kpi({ icon: Icon, label, value, tone }: {
         <Icon className="size-4.5" />
       </div>
       <div>
-        <div className={`font-mono text-xl leading-none font-medium ${color}`}>{value}</div>
+        <div className={`text-xl leading-none font-semibold tabular-nums tracking-tight ${color}`}>{value}</div>
         <div className="mt-1 text-caption text-muted-foreground">{label}</div>
       </div>
     </div>
@@ -399,7 +399,7 @@ export default function RiskAssessmentsPage() {
             onChange={e => setQuery(e.target.value)}
             placeholder="Search assessments…"
             aria-label="Search assessments"
-            className="h-9 w-full rounded-lg border border-input bg-card pr-3 pl-9 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
+            className="h-10 w-full rounded-xl border border-input bg-card pr-3 pl-9 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
           />
         </div>
         <SegmentedControl
@@ -411,7 +411,6 @@ export default function RiskAssessmentsPage() {
             { value: 'outstanding', label: 'Outstanding' },
             { value: 'complete', label: 'Complete' },
           ]}
-          className="h-9"
         />
         {areaOptions.length > 0 && (
           <Select value={areaFilter} onChange={e => setAreaFilter(e.target.value)} className="w-auto min-w-[140px]">
