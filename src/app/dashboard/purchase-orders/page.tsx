@@ -86,10 +86,10 @@ function ApproveModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm sm:items-center"
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div className="surface-card animate-scale-in w-full max-w-lg space-y-5 rounded-2xl p-6">
+      <div className="surface-elevated animate-scale-in my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg space-y-5 overflow-y-auto rounded-2xl p-6">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
