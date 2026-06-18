@@ -42,21 +42,21 @@ const FILTER_LABELS: Record<FilterState, string> = {
   missed:    'Missed',
 }
 
-const controlCls = 'h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40'
+const controlCls = 'h-9 rounded-xl border border-border bg-card px-3 text-sm text-foreground font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40'
 
 function StatusIcon({ task }: { task: TaskInstance }) {
   const s = task.status.toLowerCase()
-  if (DONE_STATUSES.has(s))       return <CheckCircle className="size-4 text-emerald-400" />
-  if (s === 'overdue')            return <XCircle     className="size-4 text-red-400" />
-  if (s === 'missed')             return <Minus       className="size-4 text-white/30" />
-  if (s === 'inprogress')         return <Clock       className="size-4 text-blue-400" />
-  return                                 <Clock       className="size-4 text-white/35" />
+  if (DONE_STATUSES.has(s))       return <CheckCircle className="size-4 text-success" />
+  if (s === 'overdue')            return <XCircle     className="size-4 text-destructive" />
+  if (s === 'missed')             return <Minus       className="size-4 text-muted-foreground/70" />
+  if (s === 'inprogress')         return <Clock       className="size-4 text-primary" />
+  return                                 <Clock       className="size-4 text-muted-foreground/70" />
 }
 
 function StatusBadge({ task }: { task: TaskInstance }) {
   const s = task.status.toLowerCase()
-  if (s === 'completedlate')  return <span className="flex h-6 shrink-0 items-center rounded-full bg-amber-500/15 px-2.5 text-[12px] font-medium text-amber-300">Late</span>
-  if (s === 'completedearly') return <span className="flex h-6 shrink-0 items-center rounded-full bg-blue-500/15 px-2.5 text-[12px] font-medium text-blue-300">Early</span>
+  if (s === 'completedlate')  return <span className="pill-base pill-warning">Late</span>
+  if (s === 'completedearly') return <span className="pill-base pill-info">Early</span>
   return null
 }
 
@@ -145,24 +145,24 @@ export default function TasksPage() {
       {/* ── KPI strip ──────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         {[
-          { label: 'Total',      value: visible.length,  colour: 'text-white' },
-          { label: 'Overdue',    value: overdueCount,    colour: overdueCount > 0 ? 'text-red-300' : 'text-white/60' },
-          { label: 'Exceptions', value: withExceptions,  colour: withExceptions > 0 ? 'text-amber-300' : 'text-white/60' },
+          { label: 'Total',      value: visible.length,  colour: 'text-foreground' },
+          { label: 'Overdue',    value: overdueCount,    colour: overdueCount > 0 ? 'text-destructive' : 'text-muted-foreground' },
+          { label: 'Exceptions', value: withExceptions,  colour: withExceptions > 0 ? 'text-warning' : 'text-muted-foreground' },
         ].map(({ label, value, colour }) => (
           <article key={label} className="surface-card p-4">
-            <div className="text-caption text-white/40">{label}</div>
+            <div className="text-caption text-muted-foreground">{label}</div>
             <div className={`mt-1.5 font-mono text-3xl font-light ${colour}`}>{value}</div>
           </article>
         ))}
       </div>
 
       {/* ── Filter tabs ────────────────────────────────────────────────────────── */}
-      <div role="tablist" aria-label="Filter tasks" className="inline-flex flex-wrap rounded-xl bg-white/[0.06] p-1">
+      <div role="tablist" aria-label="Filter tasks" className="inline-flex flex-wrap rounded-xl bg-muted/60 p-1">
         {(['all', 'done', 'inprogress', 'overdue', 'missed'] as const).map(f => {
           const count = f === 'overdue' ? overdueCount
             : f === 'missed' ? missedCount
             : null
-          const badgeCls = f === 'overdue' ? 'bg-red-500/20 text-red-300' : 'bg-white/10 text-white/50'
+          const badgeCls = f === 'overdue' ? 'bg-destructive/15 text-destructive' : 'bg-muted text-muted-foreground'
           return (
             <button
               key={f}
@@ -171,8 +171,8 @@ export default function TasksPage() {
               onClick={() => setFilter(f)}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
                 filter === f
-                  ? 'bg-white/[0.12] font-medium text-white shadow-[0_1px_2px_rgb(0_0_0/0.2)]'
-                  : 'text-white/50 hover:text-white/80'
+                  ? 'bg-muted font-medium text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.2)]'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {FILTER_LABELS[f]}
@@ -206,26 +206,26 @@ export default function TasksPage() {
             <article
               key={task.taskInstanceId}
               className={`surface-card flex items-center gap-4 px-4 py-3 ${
-                isOverdue(task) ? 'ring-1 ring-inset ring-red-500/25' : ''
+                isOverdue(task) ? 'ring-1 ring-inset ring-destructive/25' : ''
               }`}
             >
               <StatusIcon task={task} />
 
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-white">{task.taskInstanceName}</p>
-                <div className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-xs text-white/40">
+                <p className="truncate text-sm text-foreground">{task.taskInstanceName}</p>
+                <div className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-xs text-muted-foreground">
                   <span>{task.siteName}</span>
-                  <span className="text-white/20">·</span>
+                  <span className="text-muted-foreground/70">·</span>
                   <span>{formatTime(task.dueFromDatetime)} – {formatTime(task.dueByDatetime)}</span>
                   {task.completedDatetime && (
                     <>
-                      <span className="text-white/20">·</span>
-                      <span className="text-emerald-400/80">completed {formatTime(task.completedDatetime)}</span>
+                      <span className="text-muted-foreground/70">·</span>
+                      <span className="text-success">completed {formatTime(task.completedDatetime)}</span>
                     </>
                   )}
                   {task.completedByUserName && (
                     <>
-                      <span className="text-white/20">·</span>
+                      <span className="text-muted-foreground/70">·</span>
                       <span>{task.completedByUserName}</span>
                     </>
                   )}
@@ -235,7 +235,7 @@ export default function TasksPage() {
               <StatusBadge task={task} />
 
               {task.exceptionCount > 0 && (
-                <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2.5 text-[12px] font-medium text-amber-300">
+                <span className="pill-base pill-warning">
                   <AlertTriangle className="size-3" />{task.exceptionCount}
                 </span>
               )}

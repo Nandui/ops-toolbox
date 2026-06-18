@@ -41,7 +41,7 @@ const SECTION_DEFS = [
   { id: 'maintenance',      title: 'Maintenance' },
 ]
 
-const inputCls = 'w-full rounded-sm border border-white/10 bg-slate-900/80 px-2 py-1.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset font-mono'
+const inputCls = 'w-full rounded-sm border border-border bg-card px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset font-mono'
 
 function emptyRow(): OpsRow {
   return { name: '', shift: '', breakMins: '', break1: '', break2: '', break3: '', duties: '', extra: '' }
@@ -110,7 +110,7 @@ function OpsRowEditor({ row, onChange, onRemove }: {
     <div className="grid gap-1 items-center" style={{ gridTemplateColumns: '1.3fr 1fr 0.55fr 0.7fr 0.7fr 0.7fr 1.6fr 1.2fr auto' }}>
       <input aria-label="Staff name"                      className={inputCls} placeholder="Name"           value={row.name}     onChange={set('name')} />
       <input aria-label="Shift time (e.g. 06:30–13:30)"  className={inputCls} placeholder="06:30-13:30"    value={row.shift}    onChange={setShift} />
-      <input aria-label="Break entitlement (auto-calculated)" className={`${inputCls} text-white/40 cursor-default`} placeholder="—" value={row.breakMins}
+      <input aria-label="Break entitlement (auto-calculated)" className={`${inputCls} text-muted-foreground cursor-default`} placeholder="—" value={row.breakMins}
         readOnly tabIndex={-1} title={entitlement.detail || 'Auto-calculated from shift'} />
       <input aria-label="First 15-minute break time"     className={inputCls} placeholder="x"              value={row.break1}   onChange={set('break1')} />
       <input aria-label="30-minute break time"           className={inputCls} placeholder="x"              value={row.break2}   onChange={set('break2')} />
@@ -120,7 +120,7 @@ function OpsRowEditor({ row, onChange, onRemove }: {
       <button
         onClick={onRemove}
         aria-label="Remove row"
-        className="flex size-8 shrink-0 items-center justify-center rounded text-white/30 hover:bg-red-500/10 hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="flex size-8 shrink-0 items-center justify-center rounded text-muted-foreground/70 hover:bg-destructive/8 hover:text-destructive transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       >
         <Trash2 className="size-3.5" />
       </button>
@@ -135,13 +135,13 @@ function BookingRowEditor({ booking, onChange, onRemove }: {
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Clock className="size-3.5 text-white/25 shrink-0" />
+      <Clock className="size-3.5 text-muted-foreground/70 shrink-0" />
       <input
         type="time"
         aria-label="Booking time"
         value={booking.time}
         onChange={e => onChange({ ...booking, time: e.target.value })}
-        className="w-28 shrink-0 rounded-sm border border-white/10 bg-slate-900/80 px-2 py-1.5 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
+        className="w-28 shrink-0 rounded-sm border border-border bg-card px-2 py-1.5 text-sm text-foreground font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
       />
       <input
         type="text"
@@ -154,7 +154,7 @@ function BookingRowEditor({ booking, onChange, onRemove }: {
       <button
         onClick={onRemove}
         aria-label="Remove booking"
-        className="flex size-8 shrink-0 items-center justify-center rounded text-white/30 hover:bg-red-500/10 hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="flex size-8 shrink-0 items-center justify-center rounded text-muted-foreground/70 hover:bg-destructive/8 hover:text-destructive transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       >
         <Trash2 className="size-3.5" />
       </button>
@@ -242,7 +242,7 @@ export default function DeptPlanPage() {
             id="plan-site-select"
             value={siteId}
             onChange={e => setSiteId(Number(e.target.value))}
-            className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="h-9 rounded-xl border border-border bg-card px-3 text-sm text-foreground font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
@@ -252,13 +252,13 @@ export default function DeptPlanPage() {
             type="date"
             value={date}
             onChange={e => setDate(e.target.value)}
-            className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="h-9 rounded-xl border border-border bg-card px-3 text-sm text-foreground font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           />
           <button
             onClick={fetchPlan}
             disabled={loading}
             aria-label="Refresh plan"
-            className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 text-white/50 hover:text-white disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="flex size-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -266,31 +266,31 @@ export default function DeptPlanPage() {
       </div>
 
       {/* Status / action bar */}
-      <div className="rounded-xl bg-white/[0.035] px-4 py-3 ring-[0.5px] ring-inset ring-white/[0.07] flex items-center justify-between gap-3 flex-wrap">
+      <div className="rounded-xl bg-muted/40 px-4 py-3 ring-[0.5px] ring-inset ring-border flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-sm font-mono text-white/70">{dayLabel}</span>
-          {dirty && <span className="text-xs font-mono text-amber-400">Unsaved changes</span>}
+          <span className="text-sm font-mono text-muted-foreground">{dayLabel}</span>
+          {dirty && <span className="text-xs font-mono text-warning">Unsaved changes</span>}
           {!dirty && meta.updatedAt && (
-            <span className="text-xs font-mono text-white/30">
+            <span className="text-xs font-mono text-muted-foreground/70">
               Last saved by {meta.updatedBy} · {formatStamp(meta.updatedAt)}
             </span>
           )}
           {!dirty && !meta.updatedAt && !loading && (
-            <span className="text-xs font-mono text-white/30">No plan saved for this day yet</span>
+            <span className="text-xs font-mono text-muted-foreground/70">No plan saved for this day yet</span>
           )}
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={savePlan}
             disabled={saving || !dirty}
-            className="flex items-center gap-2 rounded-xl bg-white/[0.05] px-4 py-2 text-sm text-white/60 hover:bg-white/[0.08] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="flex items-center gap-2 rounded-xl bg-muted/60 px-4 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             <Save className="size-3.5" />
             {saving ? 'Saving…' : flash ? 'Saved ✓' : 'Save plan'}
           </button>
           <Link
             href={opsLogHref}
-            className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-500/20 transition-colors font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2 text-sm text-primary hover:bg-primary/20 transition-colors font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             Open Ops Log <ArrowRight className="size-3.5" />
           </Link>
@@ -298,18 +298,18 @@ export default function DeptPlanPage() {
       </div>
 
       {/* Info banner */}
-      <div role="note" className="rounded-xl bg-blue-500/10 px-4 py-3 text-[13px] text-blue-300/80 ring-1 ring-inset ring-blue-500/20">
+      <div role="note" className="rounded-xl bg-primary/8 px-4 py-3 text-[13px] text-primary ring-1 ring-inset ring-primary/20">
         Plan who is working and what bookings are scheduled. The Duty Manager can load this plan into the Ops Log to pre-populate it before approving and printing.
       </div>
 
       {error && (
-        <div role="alert" aria-live="polite" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">{error}</div>
+        <div role="alert" aria-live="polite" className="rounded-xl bg-destructive/8 px-4 py-3 text-sm text-destructive ring-1 ring-inset ring-destructive/20">{error}</div>
       )}
 
       {loading ? (
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl bg-white/[0.045]" />
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-muted/60" />
           ))}
         </div>
       ) : (
@@ -318,23 +318,23 @@ export default function DeptPlanPage() {
           {/* Column headers — visible on sm+ where the grid fits without scrolling */}
           <div
             aria-hidden="true"
-            className="hidden sm:grid gap-1 px-px sticky top-0 z-10 bg-[oklch(0.14_0.012_255)]/95 backdrop-blur-sm py-2 -my-2"
+            className="hidden sm:grid gap-1 px-px sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-2 -my-2"
             style={{ gridTemplateColumns: '1.3fr 1fr 0.55fr 0.7fr 0.7fr 0.7fr 1.6fr 1.2fr auto' }}
           >
             {['Name', 'Shift', 'Breaks', '1st 15', '30 min', '2nd 15', 'Duties', 'Cover / Extra', ''].map((h, i) => (
-              <span key={i} className="text-[11px] font-mono uppercase tracking-[0.14em] text-white/30 px-2">{h}</span>
+              <span key={i} className="text-[11px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70 px-2">{h}</span>
             ))}
           </div>
 
           {/* Sections */}
           {plan.sections.map(section => (
-            <section key={section.id} className="rounded-xl bg-white/[0.035] ring-[0.5px] ring-inset ring-white/[0.07]">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]">
-                <span className="text-xs font-semibold uppercase tracking-wider text-white/50">{section.title}</span>
+            <section key={section.id} className="rounded-xl bg-muted/40 ring-[0.5px] ring-inset ring-border">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{section.title}</span>
                 <button
                   onClick={() => updateSection(section.id, [...section.rows, emptyRow()])}
                   aria-label={`Add staff row to ${section.title}`}
-                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-white/40 hover:bg-white/[0.06] hover:text-white/70 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 >
                   <Plus className="size-3" /> Add row
                 </button>
@@ -342,7 +342,7 @@ export default function DeptPlanPage() {
               <div className="overflow-x-auto">
                 <div className="min-w-[700px] p-3 space-y-1.5">
                   {section.rows.length === 0
-                    ? <p className="text-xs text-white/30 italic px-2 py-1">No staff planned</p>
+                    ? <p className="text-xs text-muted-foreground/70 italic px-2 py-1">No staff planned</p>
                     : section.rows.map((row, i) => (
                       <OpsRowEditor
                         key={i}
@@ -358,22 +358,22 @@ export default function DeptPlanPage() {
 
           {/* Structured bookings */}
           {(['poolBookings', 'gymBookings'] as const).map(key => (
-            <section key={key} className="rounded-xl bg-white/[0.035] ring-[0.5px] ring-inset ring-white/[0.07]">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]">
-                <span className="text-xs font-semibold uppercase tracking-wider text-white/50">
+            <section key={key} className="rounded-xl bg-muted/40 ring-[0.5px] ring-inset ring-border">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {key === 'poolBookings' ? 'Pool bookings' : 'Gym bookings'}
                 </span>
                 <button
                   onClick={() => updateBookings(key, [...plan[key], emptyBooking()])}
                   aria-label={`Add ${key === 'poolBookings' ? 'pool' : 'gym'} booking`}
-                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-white/40 hover:bg-white/[0.06] hover:text-white/70 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 >
                   <Plus className="size-3" /> Add booking
                 </button>
               </div>
               <div className="p-3 space-y-2">
                 {plan[key].length === 0 ? (
-                  <p className="text-xs text-white/30 italic px-2 py-1">No bookings planned — click Add booking</p>
+                  <p className="text-xs text-muted-foreground/70 italic px-2 py-1">No bookings planned — click Add booking</p>
                 ) : (
                   plan[key].map((booking, i) => (
                     <BookingRowEditor
@@ -389,14 +389,14 @@ export default function DeptPlanPage() {
           ))}
 
           {/* Footer CTA */}
-          <div className="rounded-xl bg-white/[0.035] px-4 py-4 ring-[0.5px] ring-inset ring-white/[0.07] flex items-center justify-between gap-3 flex-wrap">
+          <div className="rounded-xl bg-muted/40 px-4 py-4 ring-[0.5px] ring-inset ring-border flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <p className="text-sm text-white">Ready? Open the Ops Log to load this plan.</p>
-              <p className="mt-0.5 text-xs text-white/40">The Duty Manager can merge this plan and make final adjustments before approving and printing.</p>
+              <p className="text-sm text-foreground">Ready? Open the Ops Log to load this plan.</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">The Duty Manager can merge this plan and make final adjustments before approving and printing.</p>
             </div>
             <Link
               href={opsLogHref}
-              className="flex shrink-0 items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-300 hover:bg-emerald-500/20 transition-colors font-mono whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="flex shrink-0 items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm text-primary hover:bg-primary/20 transition-colors font-mono whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             >
               Open Ops Log <ArrowRight className="size-3.5" />
             </Link>

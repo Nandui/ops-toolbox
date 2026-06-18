@@ -13,23 +13,23 @@ const VARIANT_STYLES: Record<
 > = {
   error: {
     icon: AlertCircle,
-    container: "bg-red-500/[0.08] ring-red-500/20 text-red-300/90",
-    iconColor: "text-red-400/80",
+    container: "bg-destructive/8 ring-destructive/20 text-destructive",
+    iconColor: "text-destructive",
   },
   success: {
     icon: CheckCircle2,
-    container: "bg-emerald-500/[0.08] ring-emerald-500/20 text-emerald-300/90",
-    iconColor: "text-emerald-400/80",
+    container: "bg-success/10 ring-success/25 text-success",
+    iconColor: "text-success",
   },
   warning: {
     icon: AlertTriangle,
-    container: "bg-amber-500/[0.08] ring-amber-500/20 text-amber-300/90",
-    iconColor: "text-amber-400/80",
+    container: "bg-warning/12 ring-warning/30 text-warning",
+    iconColor: "text-warning",
   },
   info: {
     icon: Info,
-    container: "bg-blue-500/[0.08] ring-blue-500/20 text-blue-300/90",
-    iconColor: "text-blue-400/80",
+    container: "bg-primary/8 ring-primary/20 text-primary",
+    iconColor: "text-primary",
   },
 }
 

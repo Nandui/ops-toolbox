@@ -24,7 +24,7 @@ function PageHeader({
     >
       <div className="min-w-0">
         <h1 className="text-display text-foreground">{title}</h1>
-        {subtitle && <p className="mt-1 text-[15px] text-white/50">{subtitle}</p>}
+        {subtitle && <p className="mt-1 text-[15px] text-muted-foreground">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </header>

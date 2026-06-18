@@ -1,8 +1,18 @@
 import type { Metadata } from 'next'
-import { Geist } from 'next/font/google'
+import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 
-const geist = Geist({ subsets: ['latin'] })
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+})
+
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'LeisureWorld Portal',
@@ -11,8 +21,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${geist.className} text-foreground antialiased`}>
+    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
+      <body className="font-sans text-foreground antialiased">
         {children}
       </body>
     </html>

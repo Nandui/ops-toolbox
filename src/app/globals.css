@@ -8,7 +8,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -27,6 +27,8 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -48,80 +50,105 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Light theme — the primary theme.
+ *
+ * Linear/Notion-inspired: soft off-white canvas, near-black ink, a single
+ * indigo accent. Depth comes from hairline borders and very soft shadows,
+ * never heavy fills or gradients. Status colours (red/amber/green) are
+ * reserved for state, never decoration.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --background: oklch(0.985 0.002 270);   /* soft off-white canvas */
+  --foreground: oklch(0.21 0.02 270);     /* near-black ink, faint cool tint */
+
+  --card: oklch(1 0 0);                    /* pure white cards lift off canvas */
+  --card-foreground: oklch(0.21 0.02 270);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.21 0.02 270);
+
+  --primary: oklch(0.51 0.23 277);         /* indigo ~#4F46E5 */
+  --primary-foreground: oklch(0.99 0 0);
+
+  --secondary: oklch(0.96 0.004 270);
+  --secondary-foreground: oklch(0.30 0.02 270);
+  --muted: oklch(0.965 0.004 270);
+  --muted-foreground: oklch(0.50 0.015 270);
+  --accent: oklch(0.955 0.012 277);        /* faint indigo tint for hovers */
+  --accent-foreground: oklch(0.40 0.12 277);
+
+  --destructive: oklch(0.58 0.22 25);      /* red */
+  --success: oklch(0.60 0.14 155);         /* green */
+  --warning: oklch(0.70 0.16 70);          /* amber */
+
+  --border: oklch(0.92 0.004 270);         /* hairline */
+  --input: oklch(0.90 0.004 270);
+  --ring: oklch(0.51 0.23 277 / 45%);
+
+  /* Chart ramp — indigo-led, calm and distinct (no neon) */
+  --chart-1: oklch(0.51 0.23 277);  /* indigo */
+  --chart-2: oklch(0.62 0.17 250);  /* blue */
+  --chart-3: oklch(0.65 0.14 195);  /* teal */
+  --chart-4: oklch(0.70 0.16 70);   /* amber */
+  --chart-5: oklch(0.62 0.18 350);  /* magenta */
+
+  --radius: 0.7rem;
+
+  --sidebar: oklch(0.99 0.002 270);
+  --sidebar-foreground: oklch(0.21 0.02 270);
+  --sidebar-primary: oklch(0.51 0.23 277);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.955 0.012 277);
+  --sidebar-accent-foreground: oklch(0.40 0.12 277);
+  --sidebar-border: oklch(0.92 0.004 270);
+  --sidebar-ring: oklch(0.51 0.23 277 / 45%);
 }
 
 /*
- * Dark theme — the app's only theme.
- *
- * Neutral near-black canvas with a single emerald accent. Surfaces are
- * low-opacity white fills so they read consistently over the canvas.
- * Status colours (red/amber/blue) are reserved for state, never decoration.
+ * Dark theme — optional. Deep slate canvas, same indigo accent lifted for
+ * contrast. Surfaces are slightly raised slate, borders are low-opacity white.
  */
 .dark {
-  --background: oklch(0.14 0.012 255);
-  --foreground: oklch(0.975 0 0);
-  --card: oklch(0.18 0.012 255);
-  --card-foreground: oklch(0.975 0 0);
-  --popover: oklch(0.21 0.012 255);
-  --popover-foreground: oklch(0.975 0 0);
-  --primary: oklch(0.66 0.15 160);
-  --primary-foreground: oklch(0.985 0 0);
+  --background: oklch(0.17 0.015 270);
+  --foreground: oklch(0.97 0.003 270);
+
+  --card: oklch(0.21 0.015 270);
+  --card-foreground: oklch(0.97 0.003 270);
+  --popover: oklch(0.23 0.015 270);
+  --popover-foreground: oklch(0.97 0.003 270);
+
+  --primary: oklch(0.62 0.20 277);
+  --primary-foreground: oklch(0.99 0 0);
+
   --secondary: oklch(1 0 0 / 8%);
-  --secondary-foreground: oklch(0.975 0 0);
-  --muted: oklch(1 0 0 / 7%);
-  --muted-foreground: oklch(1 0 0 / 60%);
+  --secondary-foreground: oklch(0.97 0.003 270);
+  --muted: oklch(1 0 0 / 6%);
+  --muted-foreground: oklch(0.72 0.02 270);
   --accent: oklch(1 0 0 / 8%);
-  --accent-foreground: oklch(0.975 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 20%);
-  --ring: oklch(0.72 0.13 162);
-  --chart-1: oklch(0.87 0.12 155);
-  --chart-2: oklch(0.72 0.13 250);
-  --chart-3: oklch(0.78 0.13 80);
-  --chart-4: oklch(0.72 0.11 300);
-  --chart-5: oklch(0.7 0.1 30);
-  --sidebar: oklch(0.16 0.012 255);
-  --sidebar-foreground: oklch(0.975 0 0);
-  --sidebar-primary: oklch(0.66 0.15 160);
-  --sidebar-primary-foreground: oklch(0.14 0 0);
+  --accent-foreground: oklch(0.85 0.08 277);
+
+  --destructive: oklch(0.70 0.19 25);
+  --success: oklch(0.72 0.15 155);
+  --warning: oklch(0.78 0.16 70);
+
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.62 0.20 277 / 55%);
+
+  --chart-1: oklch(0.66 0.19 277);
+  --chart-2: oklch(0.68 0.15 250);
+  --chart-3: oklch(0.72 0.13 195);
+  --chart-4: oklch(0.78 0.15 70);
+  --chart-5: oklch(0.68 0.16 350);
+
+  --sidebar: oklch(0.19 0.015 270);
+  --sidebar-foreground: oklch(0.97 0.003 270);
+  --sidebar-primary: oklch(0.62 0.20 277);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
   --sidebar-accent: oklch(1 0 0 / 8%);
-  --sidebar-accent-foreground: oklch(0.975 0 0);
-  --sidebar-border: oklch(1 0 0 / 7%);
-  --sidebar-ring: oklch(0.72 0.13 162);
+  --sidebar-accent-foreground: oklch(0.85 0.08 277);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.62 0.20 277 / 55%);
 }
 
 @layer base {
@@ -130,46 +157,48 @@
   }
   html {
     @apply font-sans antialiased;
-    /* Neutral canvas — depth comes from surfaces, not background colour */
-    background: linear-gradient(to bottom, rgb(10 13 20), rgb(8 11 17) 60%);
-    background-attachment: fixed;
+    background: var(--background);
   }
   body {
-    @apply text-foreground;
+    @apply bg-background text-foreground;
     min-height: 100vh;
-    background: transparent;
+  }
+  /* Calmer default focus ring across interactive elements */
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 22%, transparent);
   }
 }
 
 /* ── Typography scale ─────────────────────────────────────────────────────
- * Apple-style roles. Mono is reserved for data values (times, readings,
- * codes) — never labels or headings.
+ * Linear-style roles: tight, confident headings; readable body. Mono is
+ * reserved for data values (times, readings, codes) — never labels.
  */
 @utility text-display {
-  font-size: 2rem;
+  font-size: 1.9rem;
   line-height: 1.15;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   font-weight: 600;
 }
 @utility text-title {
-  font-size: 1.25rem;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
+  font-size: 1.3rem;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
   font-weight: 600;
 }
 @utility text-headline {
-  font-size: 1rem;
+  font-size: 0.975rem;
   line-height: 1.35;
+  letter-spacing: -0.01em;
   font-weight: 600;
 }
 @utility text-body {
   font-size: 0.9375rem;
-  line-height: 1.5;
+  line-height: 1.55;
   font-weight: 400;
 }
 @utility text-callout {
   font-size: 0.875rem;
-  line-height: 1.45;
+  line-height: 1.5;
   font-weight: 400;
 }
 @utility text-subhead {
@@ -183,93 +212,121 @@
   font-weight: 400;
 }
 
-/* ── Surface levels ───────────────────────────────────────────────────────
- * Level 1 (surface-card): content containers. Solid fill, hairline edge,
- *   faint top highlight. No blur — content stays legible.
- * Level 2 (surface-elevated): floating elements — action bars, popovers.
- * Glass (surface-glass): persistent chrome only (sidebar, top bar).
+/* ── Surface levels (theme-aware) ─────────────────────────────────────────
+ * Level 1 (surface-card): content containers — card fill, hairline border,
+ *   whisper-soft shadow. The workhorse surface.
+ * Level 2 (surface-elevated): floating elements — drawers, popovers, menus.
+ * Glass (surface-glass): persistent chrome (sidebar, top bar).
+ * All read correctly in both light and dark because they use tokens.
  */
 @utility surface-card {
-  background-color: rgb(255 255 255 / 0.045);
-  border-radius: 1rem;
-  box-shadow:
-    0 0 0 0.5px rgb(255 255 255 / 0.08),
-    0 1px 2px rgb(0 0 0 / 0.25),
-    inset 0 1px 0 rgb(255 255 255 / 0.05);
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 1px 2px oklch(0.21 0.02 270 / 0.04);
 }
 @utility surface-elevated {
-  background-color: rgb(255 255 255 / 0.08);
-  border-radius: 1.25rem;
+  background-color: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   box-shadow:
-    0 0 0 0.5px rgb(255 255 255 / 0.12),
-    0 8px 32px rgb(0 0 0 / 0.4),
-    0 2px 8px rgb(0 0 0 / 0.3),
-    inset 0 1px 0 rgb(255 255 255 / 0.08);
+    0 1px 2px oklch(0.21 0.02 270 / 0.06),
+    0 12px 32px oklch(0.21 0.02 270 / 0.12);
 }
 @utility surface-glass {
-  background-color: rgb(10 13 20 / 0.65);
-  backdrop-filter: blur(40px) saturate(160%);
-  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  background-color: color-mix(in oklch, var(--sidebar) 80%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 
-/* Hairline separators (0.5px) for dividing chrome from content */
-@utility hairline-t {
-  border-top: 0.5px solid rgb(255 255 255 / 0.07);
+/* Hairline separators — token-driven so they invert with the theme */
+@utility hairline-t { border-top: 1px solid var(--border); }
+@utility hairline-b { border-bottom: 1px solid var(--border); }
+@utility hairline-r { border-right: 1px solid var(--border); }
+@utility hairline-l { border-left: 1px solid var(--border); }
+
+/* ── Status pills ─────────────────────────────────────────────────────────
+ * Semantic state colours with light/dark variants. Use via the StatusPill
+ * component; these classes are the single source of pill styling.
+ */
+@utility pill-base {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 1.375rem;
+  padding-inline: 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1px solid transparent;
 }
-@utility hairline-b {
-  border-bottom: 0.5px solid rgb(255 255 255 / 0.07);
+@utility pill-neutral {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  border-color: var(--border);
 }
-@utility hairline-r {
-  border-right: 0.5px solid rgb(255 255 255 / 0.07);
+@utility pill-ok {
+  background: color-mix(in oklch, var(--success) 14%, var(--card));
+  color: color-mix(in oklch, var(--success) 72%, black);
+  border-color: color-mix(in oklch, var(--success) 28%, transparent);
 }
+@utility pill-info {
+  background: color-mix(in oklch, var(--chart-2) 14%, var(--card));
+  color: color-mix(in oklch, var(--chart-2) 70%, black);
+  border-color: color-mix(in oklch, var(--chart-2) 28%, transparent);
+}
+@utility pill-warning {
+  background: color-mix(in oklch, var(--warning) 18%, var(--card));
+  color: color-mix(in oklch, var(--warning) 64%, black);
+  border-color: color-mix(in oklch, var(--warning) 34%, transparent);
+}
+@utility pill-critical {
+  background: color-mix(in oklch, var(--destructive) 12%, var(--card));
+  color: color-mix(in oklch, var(--destructive) 70%, black);
+  border-color: color-mix(in oklch, var(--destructive) 30%, transparent);
+}
+@utility pill-accent {
+  background: color-mix(in oklch, var(--primary) 12%, var(--card));
+  color: color-mix(in oklch, var(--primary) 78%, black);
+  border-color: color-mix(in oklch, var(--primary) 26%, transparent);
+}
+.dark .pill-ok       { color: color-mix(in oklch, var(--success) 60%, white); }
+.dark .pill-info     { color: color-mix(in oklch, var(--chart-2) 62%, white); }
+.dark .pill-warning  { color: color-mix(in oklch, var(--warning) 70%, white); }
+.dark .pill-critical { color: color-mix(in oklch, var(--destructive) 68%, white); }
+.dark .pill-accent   { color: color-mix(in oklch, var(--primary) 72%, white); }
 
 /* ── Motion ───────────────────────────────────────────────────────────────
- * Apple-inspired easing: cubic-bezier(0.22, 1, 0.36, 1) approximates the
- * iOS spring curve — fast settle, no bounce. Used for content entrances.
- * Micro-interactions (hover, press) stay at 150–200 ms with ease-out.
+ * Linear-style: quick, restrained. cubic-bezier(0.22,1,0.36,1) settles fast
+ * with no bounce. Framer Motion handles richer transitions in components.
  */
 @keyframes lw-fade-up {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes lw-scale-in {
-  from { opacity: 0; transform: scale(0.96); }
+  from { opacity: 0; transform: scale(0.98); }
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* Page-level entrance — applied to the content wrapper on every navigation */
 @utility animate-page {
-  animation: lw-fade-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: lw-fade-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-/* Modal / popover entrance */
 @utility animate-scale-in {
-  animation: lw-scale-in 0.22s cubic-bezier(0.34, 1.1, 0.64, 1) both;
+  animation: lw-scale-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Stagger delays for grids and lists — cap at 300 ms so long lists don't lag */
-@utility stagger-1 { animation-delay: 60ms;  }
-@utility stagger-2 { animation-delay: 120ms; }
-@utility stagger-3 { animation-delay: 180ms; }
-@utility stagger-4 { animation-delay: 240ms; }
-@utility stagger-5 { animation-delay: 300ms; }
+@utility stagger-1 { animation-delay: 40ms;  }
+@utility stagger-2 { animation-delay: 80ms;  }
+@utility stagger-3 { animation-delay: 120ms; }
+@utility stagger-4 { animation-delay: 160ms; }
+@utility stagger-5 { animation-delay: 200ms; }
 
-/* ── Status pill glow pulses ──────────────────────────────────────────────
- * Attention states pulse; calm states (ok, live) stay still.
- * Critical is fastest (most urgent); warning and aged are slower.
- */
-@keyframes lw-pill-red {
-  0%, 100% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0); }
-  50%       { box-shadow: 0 0 0 4px rgb(239 68 68 / 0.25); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
-@keyframes lw-pill-amber {
-  0%, 100% { box-shadow: 0 0 0 0 rgb(251 191 36 / 0); }
-  50%       { box-shadow: 0 0 0 4px rgb(251 191 36 / 0.2); }
-}
-@keyframes lw-pill-orange {
-  0%, 100% { box-shadow: 0 0 0 0 rgb(249 115 22 / 0); }
-  50%       { box-shadow: 0 0 0 4px rgb(249 115 22 / 0.18); }
-}
-
-@utility pill-pulse-critical { animation: lw-pill-red    1.8s ease-in-out infinite; }
-@utility pill-pulse-warning  { animation: lw-pill-amber  2.6s ease-in-out infinite; }
-@utility pill-pulse-aged     { animation: lw-pill-orange 2.6s ease-in-out infinite; }

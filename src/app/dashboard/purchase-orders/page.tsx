@@ -16,18 +16,18 @@ type Tab        = 'submit' | 'requests'
 type SiteFilter = 'All' | 'Bishopstown' | 'Churchfield'
 
 const STATUS_BADGE: Record<PoStatus, { label: string; cls: string }> = {
-  'Pending Review': { label: 'Pending',  cls: 'bg-amber-500/15 text-amber-300'    },
-  'Approved':       { label: 'Approved', cls: 'bg-emerald-500/15 text-emerald-300' },
-  'Rejected':       { label: 'Rejected', cls: 'bg-red-500/15 text-red-300'        },
+  'Pending Review': { label: 'Pending',  cls: 'pill-base pill-warning'  },
+  'Approved':       { label: 'Approved', cls: 'pill-base pill-ok'       },
+  'Rejected':       { label: 'Rejected', cls: 'pill-base pill-critical' },
 }
 const URGENCY_CLS: Record<string, string> = {
-  Routine:   'bg-white/10 text-white/50',
-  Urgent:    'bg-amber-500/15 text-amber-300',
-  Emergency: 'bg-red-500/15 text-red-300',
+  Routine:   'bg-muted text-muted-foreground',
+  Urgent:    'pill-base pill-warning',
+  Emergency: 'pill-base pill-critical',
 }
 
-const inputCls = 'w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-white/20 focus:outline-none focus:ring-2 focus:ring-ring/40'
-const labelCls = 'block text-[13px] font-medium text-white/60 mb-1.5'
+const inputCls = 'w-full rounded-xl border border-border bg-muted/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-border focus:outline-none focus:ring-2 focus:ring-ring/40'
+const labelCls = 'block text-[13px] font-medium text-muted-foreground mb-1.5'
 
 function fmtCcy(v: number) {
   return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(v)
@@ -93,12 +93,12 @@ function ApproveModal({
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-headline text-white">{po.description}</h2>
-            <p className="mt-0.5 text-[13px] text-white/40">
+            <h2 className="text-headline text-foreground">{po.description}</h2>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">
               {po.site} · {po.supplier} · {po.requestedBy} · {fmtDate(po.requestDate)}
             </p>
           </div>
-          <button onClick={onClose} className="shrink-0 text-white/30 hover:text-white/60">
+          <button onClick={onClose} className="shrink-0 text-muted-foreground/70 hover:text-muted-foreground">
             <XCircle className="size-5" />
           </button>
         </div>
@@ -110,8 +110,8 @@ function ApproveModal({
             ['Urgency', po.urgency],
           ] as const).map(([k, v]) => (
             <div key={k}>
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-white/30">{k}</dt>
-              <dd className="mt-0.5 text-white/80">{v}</dd>
+              <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">{k}</dt>
+              <dd className="mt-0.5 text-foreground">{v}</dd>
             </div>
           ))}
         </dl>
@@ -122,11 +122,11 @@ function ApproveModal({
             href={po.quoteUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 transition-colors hover:border-white/20 hover:bg-white/[0.06]"
+            className="flex items-center gap-3 rounded-xl border border-border bg-muted/60 px-3.5 py-3 transition-colors hover:border-border hover:bg-muted"
           >
-            <FileText className="size-4 shrink-0 text-white/50" />
-            <span className="min-w-0 flex-1 truncate text-sm text-white/80">{po.quoteName ?? 'View quote'}</span>
-            <span className="shrink-0 text-[12px] font-medium text-emerald-300">Open</span>
+            <FileText className="size-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate text-sm text-foreground">{po.quoteName ?? 'View quote'}</span>
+            <span className="shrink-0 text-[12px] font-medium text-primary">Open</span>
           </a>
         )}
 
@@ -135,13 +135,13 @@ function ApproveModal({
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => setAction('approve')}
-              className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20"
+              className="flex items-center justify-center gap-2 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm font-medium text-success transition-colors hover:bg-success/20"
             >
               <CheckCircle className="size-4" /> Approve
             </button>
             <button
               onClick={() => setAction('reject')}
-              className="flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/20"
+              className="flex items-center justify-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive transition-colors hover:bg-destructive/20"
             >
               <XCircle className="size-4" /> Reject
             </button>
@@ -149,17 +149,17 @@ function ApproveModal({
         ) : (
           <>
             <div className="flex items-center gap-2">
-              <button onClick={() => { setAction(null); setError(null) }} className="text-white/30 hover:text-white/60">
+              <button onClick={() => { setAction(null); setError(null) }} className="text-muted-foreground/70 hover:text-muted-foreground">
                 <ArrowLeft className="size-4" />
               </button>
-              <span className={`text-sm font-medium ${action === 'approve' ? 'text-emerald-300' : 'text-red-300'}`}>
+              <span className={`text-sm font-medium ${action === 'approve' ? 'text-success' : 'text-destructive'}`}>
                 {action === 'approve' ? 'Approving request' : 'Rejecting request'}
               </span>
             </div>
 
             {action === 'approve' && (
               <div>
-                <label className={labelCls}>PO Code <span className="text-red-400">*</span></label>
+                <label className={labelCls}>PO Code <span className="text-destructive">*</span></label>
                 <input
                   ref={inputRef}
                   type="text"
@@ -174,7 +174,7 @@ function ApproveModal({
             <div>
               <label className={labelCls}>
                 {action === 'approve' ? 'Notes (optional)' : 'Reason for rejection'}{' '}
-                {action === 'reject' && <span className="text-red-400">*</span>}
+                {action === 'reject' && <span className="text-destructive">*</span>}
               </label>
               <textarea
                 rows={3}
@@ -268,19 +268,19 @@ function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
       {success && <StatusBanner variant="success" onDismiss={() => setSuccess(null)} className="mb-5">{success}</StatusBanner>}
 
       <form onSubmit={handleSubmit} className="surface-card space-y-5 p-6">
-        <p className="text-[13px] text-white/40">Submitting as {user?.name}</p>
+        <p className="text-[13px] text-muted-foreground">Submitting as {user?.name}</p>
 
         {/* Site */}
         <div>
-          <label className={labelCls}>Site <span className="text-red-400">*</span></label>
+          <label className={labelCls}>Site <span className="text-destructive">*</span></label>
           <div className="grid grid-cols-2 gap-2">
             {SITES.map(s => (
               <button
                 key={s} type="button" onClick={() => setSite(s)}
                 className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
                   site === s
-                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-                    : 'border-white/10 bg-white/[0.04] text-white/60 hover:text-white/90'
+                    ? 'border-primary/40 bg-primary/10 text-primary'
+                    : 'border-border bg-muted/60 text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {s}
@@ -291,7 +291,7 @@ function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
 
         {/* Supplier */}
         <div>
-          <label htmlFor="supplier" className={labelCls}>Supplier <span className="text-red-400">*</span></label>
+          <label htmlFor="supplier" className={labelCls}>Supplier <span className="text-destructive">*</span></label>
           <input
             id="supplier" type="text" value={supplier}
             onChange={e => setSupplier(e.target.value)}
@@ -302,7 +302,7 @@ function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
 
         {/* Description */}
         <div>
-          <label htmlFor="description" className={labelCls}>Description / Purpose <span className="text-red-400">*</span></label>
+          <label htmlFor="description" className={labelCls}>Description / Purpose <span className="text-destructive">*</span></label>
           <textarea
             id="description" rows={3} value={description}
             onChange={e => setDesc(e.target.value)}
@@ -314,7 +314,7 @@ function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
         {/* Value + Urgency */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="value" className={labelCls}>Order Value (€) <span className="text-red-400">*</span></label>
+            <label htmlFor="value" className={labelCls}>Order Value (€) <span className="text-destructive">*</span></label>
             <input
               id="value" type="number" min="0.01" step="0.01"
               value={value} onChange={e => setValue(e.target.value)}
@@ -322,7 +322,7 @@ function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
             />
           </div>
           <div>
-            <label htmlFor="urgency" className={labelCls}>Urgency <span className="text-red-400">*</span></label>
+            <label htmlFor="urgency" className={labelCls}>Urgency <span className="text-destructive">*</span></label>
             <select id="urgency" value={urgency} onChange={e => setUrgency(e.target.value)} className={inputCls}>
               {URGENCIES.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
@@ -331,7 +331,7 @@ function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
 
         {/* Quote document */}
         <div>
-          <label className={labelCls}>Quote document <span className="text-red-400">*</span></label>
+          <label className={labelCls}>Quote document <span className="text-destructive">*</span></label>
           <input
             ref={fileRef}
             type="file"
@@ -340,16 +340,16 @@ function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
             onChange={e => pickFile(e.target.files?.[0] ?? null)}
           />
           {quote ? (
-            <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] px-3.5 py-3">
-              <FileText className="size-4 shrink-0 text-emerald-300" />
+            <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/[0.06] px-3.5 py-3">
+              <FileText className="size-4 shrink-0 text-primary" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-white">{quote.name}</p>
-                <p className="text-[11px] text-white/40">{(quote.size / 1024 / 1024).toFixed(2)} MB</p>
+                <p className="truncate text-sm text-foreground">{quote.name}</p>
+                <p className="text-[11px] text-muted-foreground">{(quote.size / 1024 / 1024).toFixed(2)} MB</p>
               </div>
               <button
                 type="button"
                 onClick={() => { setQuote(null); if (fileRef.current) fileRef.current.value = '' }}
-                className="shrink-0 text-white/30 transition-colors hover:text-white/70"
+                className="shrink-0 text-muted-foreground/70 transition-colors hover:text-foreground"
                 aria-label="Remove file"
               >
                 <XCircle className="size-4" />
@@ -359,13 +359,13 @@ function SubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-5 text-sm text-white/50 transition-colors hover:border-white/25 hover:text-white/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 px-4 py-5 text-sm text-muted-foreground transition-colors hover:border-border hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             >
               <Upload className="size-4" />
               Attach quote (PDF, image, or document)
             </button>
           )}
-          <p className="mt-1.5 text-[11px] text-white/30">Required — max 20 MB. The approver reviews this before issuing a PO number.</p>
+          <p className="mt-1.5 text-[11px] text-muted-foreground/70">Required — max 20 MB. The approver reviews this before issuing a PO number.</p>
         </div>
 
         <Button type="submit" variant="primary" className="w-full" disabled={submitting}>
@@ -396,24 +396,24 @@ function OrderStatusList({ pos, loading, isAdmin, onReview }: {
       {/* KPI strip */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Total',    value: pos.length,      cls: 'text-white'       },
-          { label: 'Pending',  value: pending.length,  cls: pending.length > 0 ? 'text-amber-300' : 'text-white/60' },
-          { label: 'Approved', value: approved.length, cls: 'text-emerald-300' },
+          { label: 'Total',    value: pos.length,      cls: 'text-foreground'       },
+          { label: 'Pending',  value: pending.length,  cls: pending.length > 0 ? 'text-warning' : 'text-muted-foreground' },
+          { label: 'Approved', value: approved.length, cls: 'text-success' },
         ].map(({ label, value, cls }, i) => (
           <article key={label} className={`surface-card animate-page p-4 stagger-${i + 1 as 1 | 2 | 3}`}>
-            <div className="text-caption text-white/40">{label}</div>
+            <div className="text-caption text-muted-foreground">{label}</div>
             <div className={`mt-1 text-2xl font-light ${cls}`}>{loading ? '…' : value}</div>
           </article>
         ))}
       </div>
 
       {/* Site filter */}
-      <div className="inline-flex rounded-xl bg-white/[0.06] p-1">
+      <div className="inline-flex rounded-xl bg-muted/60 p-1">
         {(['All', 'Bishopstown', 'Churchfield'] as SiteFilter[]).map(s => (
           <button
             key={s} onClick={() => setSiteFilter(s)}
             className={`rounded-lg px-3 py-1.5 text-[13px] transition-colors ${
-              siteFilter === s ? 'bg-white/[0.12] font-medium text-white' : 'text-white/50 hover:text-white/80'
+              siteFilter === s ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {s}
@@ -423,13 +423,13 @@ function OrderStatusList({ pos, loading, isAdmin, onReview }: {
 
       {/* Cards */}
       {loading ? (
-        <div className="py-10 text-center text-sm text-white/30">Loading…</div>
+        <div className="py-10 text-center text-sm text-muted-foreground/70">Loading…</div>
       ) : filtered.length === 0 ? (
-        <div className="surface-card py-10 text-center text-sm text-white/30">No requests yet.</div>
+        <div className="surface-card py-10 text-center text-sm text-muted-foreground/70">No requests yet.</div>
       ) : (
         <div className="space-y-3">
           {filtered.map((po, idx) => {
-            const urgBadge = URGENCY_CLS[po.urgency] ?? 'bg-white/10 text-white/50'
+            const urgBadge = URGENCY_CLS[po.urgency] ?? 'bg-muted text-muted-foreground'
             const isApproved = po.status === 'Approved'
             const isPending  = po.status === 'Pending Review'
             const isRejected = po.status === 'Rejected'
@@ -438,17 +438,17 @@ function OrderStatusList({ pos, loading, isAdmin, onReview }: {
               <article
                 key={po.id}
                 className={`surface-card animate-page overflow-hidden rounded-2xl transition-transform duration-200 ease-out hover:-translate-y-px ${
-                  isApproved ? 'ring-1 ring-inset ring-emerald-500/25' :
-                  isPending  ? 'ring-1 ring-inset ring-amber-500/20'   : ''
+                  isApproved ? 'ring-1 ring-inset ring-success/25' :
+                  isPending  ? 'ring-1 ring-inset ring-warning/20'   : ''
                 }`}
                 style={{ animationDelay: `${Math.min(idx * 50, 250)}ms` }}
               >
                 {/* Approved: PO number banner */}
                 {isApproved && po.poNumber && (
-                  <div className="flex items-center gap-3 border-b border-emerald-500/15 bg-emerald-500/8 px-4 py-2.5">
-                    <CheckCircle className="size-4 shrink-0 text-emerald-400" />
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-emerald-400/70">PO Number</span>
-                    <span className="font-mono text-base font-semibold tracking-wider text-emerald-300">
+                  <div className="flex items-center gap-3 border-b border-success/15 bg-success/8 px-4 py-2.5">
+                    <CheckCircle className="size-4 shrink-0 text-success" />
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-success/70">PO Number</span>
+                    <span className="font-mono text-base font-semibold tracking-wider text-success">
                       {po.poNumber}
                     </span>
                   </div>
@@ -456,9 +456,9 @@ function OrderStatusList({ pos, loading, isAdmin, onReview }: {
 
                 {/* Pending: awaiting banner */}
                 {isPending && (
-                  <div className="flex items-center gap-3 border-b border-amber-500/15 bg-amber-500/6 px-4 py-2">
-                    <Clock className="size-3.5 shrink-0 text-amber-400/70" />
-                    <span className="text-[12px] text-amber-300/70">Awaiting approval</span>
+                  <div className="flex items-center gap-3 border-b border-warning/15 bg-warning/6 px-4 py-2">
+                    <Clock className="size-3.5 shrink-0 text-warning/70" />
+                    <span className="text-[12px] text-warning/70">Awaiting approval</span>
                     {isAdmin && (
                       <Button
                         variant="secondary" size="xs"
@@ -473,9 +473,9 @@ function OrderStatusList({ pos, loading, isAdmin, onReview }: {
 
                 {/* Rejected: reason banner */}
                 {isRejected && (
-                  <div className="flex items-start gap-3 border-b border-red-500/15 bg-red-500/6 px-4 py-2">
-                    <XCircle className="mt-0.5 size-3.5 shrink-0 text-red-400/70" />
-                    <span className="text-[12px] text-red-300/70">
+                  <div className="flex items-start gap-3 border-b border-destructive/15 bg-destructive/6 px-4 py-2">
+                    <XCircle className="mt-0.5 size-3.5 shrink-0 text-destructive/70" />
+                    <span className="text-[12px] text-destructive/70">
                       Rejected{po.adminNotes ? ` — ${po.adminNotes}` : ''}
                     </span>
                   </div>
@@ -484,25 +484,25 @@ function OrderStatusList({ pos, loading, isAdmin, onReview }: {
                 {/* Body */}
                 <div className="flex flex-wrap items-center gap-4 px-4 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-white">{po.description}</p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-white/40">
+                    <p className="truncate text-sm font-medium text-foreground">{po.description}</p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span>{po.supplier}</span>
-                      <span className="text-white/20">·</span>
+                      <span className="text-muted-foreground/70">·</span>
                       <span>{po.site}</span>
-                      <span className="text-white/20">·</span>
+                      <span className="text-muted-foreground/70">·</span>
                       <span>{fmtDate(po.requestDate ?? po.createdTime)}</span>
                       {po.requestedBy !== user?.name && (
-                        <><span className="text-white/20">·</span><span>{po.requestedBy}</span></>
+                        <><span className="text-muted-foreground/70">·</span><span>{po.requestedBy}</span></>
                       )}
                       {po.quoteUrl && (
                         <>
-                          <span className="text-white/20">·</span>
+                          <span className="text-muted-foreground/70">·</span>
                           <a
                             href={po.quoteUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={e => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-white/55 transition-colors hover:text-emerald-300"
+                            className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-primary"
                           >
                             <Paperclip className="size-3" /> Quote
                           </a>
@@ -511,7 +511,7 @@ function OrderStatusList({ pos, loading, isAdmin, onReview }: {
                     </div>
                   </div>
 
-                  <span className="shrink-0 font-mono text-sm text-white/70">{fmtCcy(po.value)}</span>
+                  <span className="shrink-0 font-mono text-sm text-foreground">{fmtCcy(po.value)}</span>
                   <span className={`flex h-6 shrink-0 items-center rounded-full px-2.5 text-[11px] font-medium ${urgBadge}`}>
                     {po.urgency}
                   </span>
@@ -552,7 +552,7 @@ export default function PurchaseOrdersPage() {
       {/* Header */}
       <div>
         <h1 className="text-title">Purchase Orders</h1>
-        <p className="mt-1 text-[13px] text-white/40">
+        <p className="mt-1 text-[13px] text-muted-foreground">
           Submit and track purchase order requests.
         </p>
       </div>
@@ -562,7 +562,7 @@ export default function PurchaseOrdersPage() {
       )}
 
       {/* Tabs */}
-      <div role="tablist" className="inline-flex rounded-xl bg-white/[0.06] p-1">
+      <div role="tablist" className="inline-flex rounded-xl bg-muted/60 p-1">
         {([
           ['submit',   'Submit Request'],
           ['requests', `Order Status${pending.length > 0 && isAdmin ? ` (${pending.length} pending)` : ''}`],
@@ -572,8 +572,8 @@ export default function PurchaseOrdersPage() {
             onClick={() => setTab(t)}
             className={`rounded-lg px-4 py-1.5 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               tab === t
-                ? 'bg-white/[0.12] font-medium text-white shadow-[0_1px_2px_rgb(0_0_0/0.2)]'
-                : 'text-white/50 hover:text-white/80'
+                ? 'bg-muted font-medium text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.2)]'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {label}

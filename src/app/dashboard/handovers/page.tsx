@@ -10,12 +10,12 @@ type PillLevel = 'ok' | 'pending' | 'neutral'
 
 function Pill({ level, label }: { level: PillLevel; label: string }) {
   const colours: Record<PillLevel, string> = {
-    ok:      'bg-emerald-500/15 text-emerald-300',
-    pending: 'bg-blue-500/15 text-blue-300',
-    neutral: 'bg-white/[0.08] text-white/60',
+    ok:      'pill-ok',
+    pending: 'pill-info',
+    neutral: 'pill-neutral',
   }
   return (
-    <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${colours[level]}`}>
+    <span className={`pill-base ${colours[level]}`}>
       {label}
     </span>
   )
@@ -114,7 +114,7 @@ export default function HandoversPage() {
             id="handovers-range"
             value={days}
             onChange={e => setDays(Number(e.target.value))}
-            className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="h-9 rounded-xl border border-border bg-card px-3 text-sm text-foreground font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             <option value={7}>Last 7 days</option>
             <option value={14}>Last 14 days</option>
@@ -124,7 +124,7 @@ export default function HandoversPage() {
             onClick={fetchData}
             disabled={loading}
             aria-label="Refresh handovers"
-            className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 text-white/50 hover:text-white disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="flex size-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -132,7 +132,7 @@ export default function HandoversPage() {
       </div>
 
       {error && (
-        <div role="alert" aria-live="polite" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">
+        <div role="alert" aria-live="polite" className="rounded-xl bg-destructive/8 px-4 py-3 text-sm text-destructive ring-1 ring-inset ring-destructive/20">
           {error}
         </div>
       )}
@@ -145,15 +145,15 @@ export default function HandoversPage() {
           { label: 'Pending',        value: handovers.filter(h => !h.completedDatetime).length },
         ].map(({ label, value }) => (
           <article key={label} className="surface-card p-4">
-            <div className="text-caption text-white/40">{label}</div>
-            <div className="mt-1.5 font-mono text-3xl font-light text-white">{value}</div>
+            <div className="text-caption text-muted-foreground">{label}</div>
+            <div className="mt-1.5 font-mono text-3xl font-light text-foreground">{value}</div>
           </article>
         ))}
       </div>
 
       {/* ── List ───────────────────────────────────────────────────────────────── */}
       <div className="space-y-3">
-        <h2 className="text-headline text-white/80">Handover log — last {days} days</h2>
+        <h2 className="text-headline text-foreground">Handover log — last {days} days</h2>
 
         {loading && handovers.length === 0 ? (
           <LoadingState label="Loading handovers…" />
@@ -177,35 +177,35 @@ export default function HandoversPage() {
                 <article key={ho.taskInstanceId} className="surface-card p-4">
 
                   <div className="mb-3 flex items-start justify-between gap-4">
-                    <span className="text-sm font-medium text-white">{ho.taskInstanceName}</span>
+                    <span className="text-sm font-medium text-foreground">{ho.taskInstanceName}</span>
                     <Pill level={ho.completedDatetime ? 'ok' : 'pending'} label={ho.completedDatetime ? 'Completed' : 'Pending'} />
                   </div>
 
-                  <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-white/40">
+                  <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-muted-foreground">
                     <span className="flex items-center gap-1"><MapPin className="size-3" />{ho.siteName}</span>
                     <span className="flex items-center gap-1"><Calendar className="size-3" />{formatDate(ho.dueFromDatetime)}</span>
                     {ho.completedByUserName && (
                       <span className="flex items-center gap-1"><User className="size-3" />{ho.completedByUserName}</span>
                     )}
                     {ho.completedDatetime && (
-                      <span className="text-white/30">completed {formatDate(ho.completedDatetime)}</span>
+                      <span className="text-muted-foreground/70">completed {formatDate(ho.completedDatetime)}</span>
                     )}
                   </div>
 
                   {allSections.length > 0 && (
-                    <div className="space-y-4 border-t border-white/[0.06] pt-3">
+                    <div className="space-y-4 border-t border-border pt-3">
                       {allSections.map(({ section, fields }) => (
                         <div key={section || '__top__'}>
                           {section && (
-                            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
+                            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                               {section}
                             </div>
                           )}
                           <div className="space-y-2">
                             {fields.map(field => (
                               <div key={field.id}>
-                                <div className="mb-0.5 text-xs leading-snug text-white/40">{field.name}</div>
-                                <div className="text-[13px] leading-snug text-white/85">{formatFieldValue(field)}</div>
+                                <div className="mb-0.5 text-xs leading-snug text-muted-foreground">{field.name}</div>
+                                <div className="text-[13px] leading-snug text-foreground">{formatFieldValue(field)}</div>
                               </div>
                             ))}
                           </div>

@@ -29,7 +29,7 @@ function LoadingState({
       className={cn("flex flex-col items-center justify-center py-16", className)}
     >
       <Spinner className="size-7" />
-      <p className="mt-4 text-[15px] text-white/40">{label}</p>
+      <p className="mt-4 text-[15px] text-muted-foreground">{label}</p>
     </div>
   )
 }

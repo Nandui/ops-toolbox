@@ -274,23 +274,15 @@ function computeTrend(readings: Reading[], metricKey: MetricKey): 'up' | 'down' 
 function StatusPill({ level, label }: { level: StatusLevel | 'live' | 'outdated' | 'aged'; label: string }) {
   const cls =
     level === 'ok' || level === 'live'
-      ? 'bg-emerald-500/15 text-emerald-300'
-      : level === 'warning' || level === 'outdated'
-      ? 'bg-amber-500/15 text-amber-300'
+      ? 'pill-ok'
+      : level === 'warning' || level === 'outdated' || level === 'aged'
+      ? 'pill-warning'
       : level === 'critical'
-      ? 'bg-red-500/15 text-red-300'
-      : level === 'aged'
-      ? 'bg-orange-500/15 text-orange-300'
-      : 'bg-white/[0.08] text-white/60'
-
-  const pulse =
-    level === 'critical'                       ? 'pill-pulse-critical'
-    : level === 'warning' || level === 'outdated' ? 'pill-pulse-warning'
-    : level === 'aged'                            ? 'pill-pulse-aged'
-    : ''
+      ? 'pill-critical'
+      : 'pill-neutral'
 
   return (
-    <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${cls} ${pulse}`}>
+    <span className={`pill-base ${cls}`}>
       {label}
     </span>
   )
@@ -336,20 +328,20 @@ function RangeBar({ value, metricKey }: { value: number | null; metricKey: Metri
             height: 0,
             borderLeft: '4px solid transparent',
             borderRight: '4px solid transparent',
-            borderTop: '5px solid rgba(255,255,255,0.8)',
+            borderTop: '5px solid var(--foreground)',
           }}
         />
       )}
       <div className="h-2 relative overflow-hidden rounded-sm">
-        <div className="absolute inset-y-0 left-[0%]  w-[10%] bg-red-500/40"    />
-        <div className="absolute inset-y-0 left-[10%] w-[20%] bg-yellow-400/50" />
-        <div className="absolute inset-y-0 left-[30%] w-[40%] bg-green-500/60"  />
-        <div className="absolute inset-y-0 left-[70%] w-[20%] bg-yellow-400/50" />
-        <div className="absolute inset-y-0 left-[90%] w-[10%] bg-red-500/40"    />
+        <div className="absolute inset-y-0 left-[0%]  w-[10%]" style={{ background: 'color-mix(in oklch, var(--destructive) 40%, transparent)' }} />
+        <div className="absolute inset-y-0 left-[10%] w-[20%]" style={{ background: 'color-mix(in oklch, var(--warning) 50%, transparent)' }} />
+        <div className="absolute inset-y-0 left-[30%] w-[40%]" style={{ background: 'color-mix(in oklch, var(--success) 60%, transparent)' }} />
+        <div className="absolute inset-y-0 left-[70%] w-[20%]" style={{ background: 'color-mix(in oklch, var(--warning) 50%, transparent)' }} />
+        <div className="absolute inset-y-0 left-[90%] w-[10%]" style={{ background: 'color-mix(in oklch, var(--destructive) 40%, transparent)' }} />
         {valuePct !== null && (
           <div
-            className="absolute inset-y-0 w-0.5 bg-white/90"
-            style={{ left: `${valuePct}%`, transform: 'translateX(-50%)' }}
+            className="absolute inset-y-0 w-0.5"
+            style={{ left: `${valuePct}%`, transform: 'translateX(-50%)', background: 'var(--foreground)' }}
           />
         )}
       </div>
@@ -377,24 +369,24 @@ function MetricBlock({ metricKey, value, lastTime, recentReadings = [] }: { metr
       : `Target ${t.low}–${t.high}${t.unit ? ` ${t.unit}` : ''}`
 
   return (
-    <div className="space-y-2 pt-3 border-t border-white/[0.06] first:pt-0 first:border-t-0">
+    <div className="space-y-2 pt-3 border-t border-border first:pt-0 first:border-t-0">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="mb-1 text-caption text-white/40">{t.label}</div>
-          <div className="font-mono text-4xl leading-none text-white">
+          <div className="mb-1 text-caption text-muted-foreground">{t.label}</div>
+          <div className="font-mono text-4xl leading-none text-foreground">
             {displayValue}
-            {value !== null && t.unit && <span className="ml-1 text-xl text-white/45">{t.unit}</span>}
+            {value !== null && t.unit && <span className="ml-1 text-xl text-muted-foreground">{t.unit}</span>}
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          {trend === 'up'     && <TrendingUp   className="size-3.5 text-white/45" />}
-          {trend === 'down'   && <TrendingDown className="size-3.5 text-white/45" />}
-          {trend === 'stable' && <Minus        className="size-3.5 text-white/45" />}
+          {trend === 'up'     && <TrendingUp   className="size-3.5 text-muted-foreground" />}
+          {trend === 'down'   && <TrendingDown className="size-3.5 text-muted-foreground" />}
+          {trend === 'stable' && <Minus        className="size-3.5 text-muted-foreground" />}
           <StatusPill level={status} label={statusLabel} />
         </div>
       </div>
       <RangeBar value={value} metricKey={metricKey} />
-      <div className="text-caption text-white/35">
+      <div className="text-caption text-muted-foreground/70">
         {targetBand}{lastTime ? ` · last test ${lastTime}` : ''}
       </div>
     </div>
@@ -414,8 +406,8 @@ function PoolChemCard({ poolLabel, readings }: { poolLabel: string; readings: Re
 
   return (
     <article className="surface-card p-4">
-      <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
-        <h3 className="text-headline text-white">{poolLabel}</h3>
+      <div className="flex items-center justify-between gap-3 pb-3 border-b border-border">
+        <h3 className="text-headline text-foreground">{poolLabel}</h3>
         <div className="flex items-center gap-2">
           {isStale && <StatusPill level="outdated" label="Stale" />}
           {isAged && <StatusPill level="aged" label="Old data" />}
@@ -441,15 +433,15 @@ function BatherKpiCard({ poolLabel, count, completedAt }: { poolLabel: string; c
   return (
     <article className="surface-card p-4">
       <div className="mb-3 flex items-start justify-between gap-2">
-        <span className="text-caption leading-snug text-white/50">
+        <span className="text-caption leading-snug text-muted-foreground">
           {poolLabel}<br />swimmers now
         </span>
         <StatusPill level={isOutdated ? 'outdated' : 'live'} label={isOutdated ? 'Outdated' : 'Live'} />
       </div>
-      <div className="mb-3 font-mono leading-none text-white" style={{ fontSize: 'clamp(32px, 3vw, 48px)' }}>
+      <div className="mb-3 font-mono leading-none text-foreground" style={{ fontSize: 'clamp(32px, 3vw, 48px)' }}>
         {count !== null ? count.toLocaleString() : '—'}
       </div>
-      <div className="text-caption text-white/35">
+      <div className="text-caption text-muted-foreground/70">
         {completedAt
           ? ageMinutes === 0
             ? 'Just updated'
@@ -522,10 +514,10 @@ export default function ChemistryPage() {
       {/* ── Live command section ─────────────────────────────────────────────── */}
       <div className="space-y-4">
         {/* Header row */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-white/[0.06]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-border">
           <div>
             <h1 className="text-title">Pool Chemistry</h1>
-            <p className="mt-1 text-callout text-white/50">Live water quality and bather load data from Trail.</p>
+            <p className="mt-1 text-callout text-muted-foreground">Live water quality and bather load data from Trail.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <label htmlFor="chem-site-select" className="sr-only">Site</label>
@@ -533,7 +525,7 @@ export default function ChemistryPage() {
               id="chem-site-select"
               value={selectedSiteId}
               onChange={e => setSelectedSiteId(Number(e.target.value))}
-              className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="h-9 rounded-xl border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             >
               {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
@@ -541,7 +533,7 @@ export default function ChemistryPage() {
               onClick={fetchLiveData}
               disabled={liveLoading}
               aria-label="Refresh chemistry data"
-              className="flex items-center gap-2 h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white/60 hover:text-white disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="flex items-center gap-2 h-9 rounded-xl border border-border bg-card px-3 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             >
               <RefreshCw className={`size-4 ${liveLoading ? 'animate-spin' : ''}`} />
               Refresh
@@ -550,12 +542,12 @@ export default function ChemistryPage() {
         </div>
 
         {liveError && (
-          <div role="alert" aria-live="polite" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">{liveError}</div>
+          <div role="alert" aria-live="polite" className="rounded-xl bg-destructive/8 px-4 py-3 text-sm text-destructive ring-1 ring-inset ring-destructive/20">{liveError}</div>
         )}
 
         {/* Bather load KPI strip */}
         <div className="space-y-2">
-          <h2 className="text-headline text-white/80">Bather loads</h2>
+          <h2 className="text-headline text-foreground">Bather loads</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {sitePoolLabels.map(poolLabel => (
               <BatherKpiCard
@@ -570,11 +562,11 @@ export default function ChemistryPage() {
 
         {/* Chemistry command panel */}
         <div className="space-y-2">
-          <h2 className="text-headline text-white/80">Pool chemistry</h2>
+          <h2 className="text-headline text-foreground">Pool chemistry</h2>
           {liveLoading && liveReadings.length === 0 ? (
             <LoadingState label="Loading chemistry data…" />
           ) : sitePoolLabels.filter(p => p !== 'Chlorine & CO2').length === 0 ? (
-            <div className="surface-card px-6 py-12 text-center text-[15px] text-white/40">No pools configured for this site.</div>
+            <div className="surface-card px-6 py-12 text-center text-[15px] text-muted-foreground">No pools configured for this site.</div>
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {sitePoolLabels

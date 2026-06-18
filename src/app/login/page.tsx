@@ -61,7 +61,7 @@ export default function LoginPage() {
 
   const displayError = error || urlError
 
-  const inputCls = 'w-full rounded-xl bg-white/[0.06] px-4 py-3 text-[15px] text-white placeholder:text-white/25 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40'
+  const inputCls = 'w-full rounded-xl border border-input bg-card px-4 py-3 text-[15px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30'
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
@@ -69,12 +69,12 @@ export default function LoginPage() {
 
         {/* Brand */}
         <div className="flex items-center gap-3 px-1 pb-2">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
-            <Waves className="size-4.5 text-emerald-400" />
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-[0_1px_2px_rgb(2_6_23/0.12)]">
+            <Waves className="size-4.5" />
           </div>
           <div>
-            <p className="text-subhead leading-tight text-white">LeisureWorld</p>
-            <p className="text-caption text-white/40">Manager Portal</p>
+            <p className="text-subhead leading-tight font-semibold text-foreground">LeisureWorld</p>
+            <p className="text-caption text-muted-foreground">Manager Portal</p>
           </div>
         </div>
 
@@ -86,7 +86,7 @@ export default function LoginPage() {
             <div
               role="alert"
               aria-live="polite"
-              className="rounded-xl bg-red-500/10 px-4 py-3 text-[13px] text-red-300 ring-1 ring-inset ring-red-500/20"
+              className="rounded-xl bg-destructive/8 px-4 py-3 text-[13px] text-destructive ring-1 ring-inset ring-destructive/20"
             >
               {displayError}
             </div>
@@ -94,11 +94,11 @@ export default function LoginPage() {
 
           <form action="/api/auth/login" method="POST" onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="email" className="text-caption text-white/50">
+              <label htmlFor="email" className="text-caption text-muted-foreground">
                 Email address
               </label>
               <div className="relative">
-                <Mail className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-white/25" />
+                <Mail className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   id="email"
                   name="email"
@@ -114,11 +114,11 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="password" className="text-caption text-white/50">
+              <label htmlFor="password" className="text-caption text-muted-foreground">
                 Password
               </label>
               <div className="relative">
-                <Lock className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-white/25" />
+                <Lock className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   id="password"
                   name="password"
@@ -135,7 +135,7 @@ export default function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   aria-pressed={showPassword}
-                  className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-white/30 hover:text-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 transition-colors"
+                  className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 transition-colors"
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -145,7 +145,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-[15px] font-medium text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.15),0_1px_2px_rgb(0_0_0/0.3)] hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 transition-all focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-[15px] font-medium text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.18),0_1px_2px_rgb(2_6_23/0.12)] hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 transition-all focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
             >
               {loading ? <><Loader2 className="size-4 animate-spin" />Signing in…</> : 'Sign in'}
             </button>
@@ -154,7 +154,7 @@ export default function LoginPage() {
 
         {/* Dev quick access */}
         <div className="space-y-2">
-          <p className="px-1 text-[11px] font-medium uppercase tracking-wide text-white/20">
+          <p className="px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
             Quick access
           </p>
           <div className="grid grid-cols-3 gap-2">
@@ -167,7 +167,7 @@ export default function LoginPage() {
                 key={role}
                 onClick={() => handleBypass(role)}
                 disabled={bypassing !== null}
-                className="flex flex-col items-center gap-1.5 rounded-xl bg-white/[0.04] px-2 py-3 text-[11px] text-white/40 ring-[0.5px] ring-inset ring-white/[0.06] transition-colors hover:bg-white/[0.07] hover:text-white/60 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card px-2 py-3 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               >
                 {bypassing === role
                   ? <Loader2 className="size-4 animate-spin" />

@@ -23,8 +23,8 @@ interface UserInfo {
 
 // ── Shared styles ──────────────────────────────────────────────────────────────
 
-const inputCls = 'w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-white/20 focus:outline-none focus:ring-2 focus:ring-ring/40'
-const labelCls = 'block text-[13px] font-medium text-white/60 mb-1.5'
+const inputCls = 'w-full rounded-xl border border-border bg-muted/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-border focus:outline-none focus:ring-2 focus:ring-ring/40'
+const labelCls = 'block text-[13px] font-medium text-muted-foreground mb-1.5'
 
 // ── User Modal ─────────────────────────────────────────────────────────────────
 
@@ -102,10 +102,10 @@ function UserModal({
 
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h2 className="text-headline text-white">
+          <h2 className="text-headline text-foreground">
             {isEdit ? `Edit ${editing!.name}` : 'Add user'}
           </h2>
-          <button onClick={onClose} className="text-white/30 transition-colors hover:text-white/60">
+          <button onClick={onClose} className="text-muted-foreground/70 transition-colors hover:text-muted-foreground">
             <X className="size-5" />
           </button>
         </div>
@@ -115,14 +115,14 @@ function UserModal({
         {/* Name + Email */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className={labelCls}>Name <span className="text-red-400">*</span></label>
+            <label className={labelCls}>Name <span className="text-destructive">*</span></label>
             <input
               type="text" value={name} onChange={e => setName(e.target.value)}
               placeholder="Full name" className={inputCls}
             />
           </div>
           <div>
-            <label className={labelCls}>Email <span className="text-red-400">*</span></label>
+            <label className={labelCls}>Email <span className="text-destructive">*</span></label>
             <input
               type="email" value={email} onChange={e => setEmail(e.target.value)}
               placeholder="user@leisureworld.ie" className={inputCls}
@@ -132,7 +132,7 @@ function UserModal({
 
         {/* Role */}
         <div>
-          <label className={labelCls}>Role <span className="text-red-400">*</span></label>
+          <label className={labelCls}>Role <span className="text-destructive">*</span></label>
           <select value={role} onChange={e => setRole(e.target.value)} className={inputCls}>
             {USER_ROLES.map(r => (
               <option key={r} value={r}>{ROLE_LABELS[r]}</option>
@@ -152,8 +152,8 @@ function UserModal({
                   onClick={() => toggleSite(site.id)}
                   className={`rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
                     siteIds.includes(site.id)
-                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-                      : 'border-white/10 bg-white/[0.04] text-white/55 hover:text-white/80'
+                      ? 'border-primary/40 bg-primary/10 text-primary'
+                      : 'border-border bg-muted/60 text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {site.name}
@@ -168,7 +168,7 @@ function UserModal({
           <div>
             <label className={labelCls}>
               {isEdit ? 'New password' : 'Password'}
-              {!isEdit && <span className="text-red-400"> *</span>}
+              {!isEdit && <span className="text-destructive"> *</span>}
             </label>
             <div className="relative">
               <input
@@ -181,7 +181,7 @@ function UserModal({
               <button
                 type="button"
                 onClick={() => setShowPw(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 transition-colors hover:text-white/60"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 transition-colors hover:text-muted-foreground"
                 aria-label={showPw ? 'Hide password' : 'Show password'}
               >
                 {showPw ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -190,7 +190,7 @@ function UserModal({
           </div>
           <div>
             <label className={labelCls}>
-              Confirm password{!isEdit && <span className="text-red-400"> *</span>}
+              Confirm password{!isEdit && <span className="text-destructive"> *</span>}
             </label>
             <input
               type={showPw ? 'text' : 'password'}
@@ -204,10 +204,10 @@ function UserModal({
 
         {/* Active toggle — edit only */}
         {isEdit && (
-          <div className="flex items-center justify-between rounded-xl bg-white/[0.04] px-4 py-3 ring-[0.5px] ring-inset ring-white/[0.06]">
+          <div className="flex items-center justify-between rounded-xl bg-muted/60 px-4 py-3 ring-[0.5px] ring-inset ring-border">
             <div>
-              <p className="text-sm font-medium text-white">Account active</p>
-              <p className="mt-0.5 text-xs text-white/40">Inactive users cannot sign in</p>
+              <p className="text-sm font-medium text-foreground">Account active</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Inactive users cannot sign in</p>
             </div>
             <button
               type="button"
@@ -215,10 +215,10 @@ function UserModal({
               role="switch"
               aria-checked={active}
               className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ${
-                active ? 'bg-emerald-500' : 'bg-white/15'
+                active ? 'bg-primary' : 'bg-muted-foreground/30'
               }`}
             >
-              <span className={`inline-block size-4 rounded-full bg-white shadow transition-transform duration-200 ${
+              <span className={`inline-block size-4 rounded-full bg-background shadow transition-transform duration-200 ${
                 active ? 'translate-x-6' : 'translate-x-1'
               }`} />
             </button>
@@ -259,7 +259,7 @@ export default function UsersPage() {
 
   if (!user || !isAdmin) {
     return (
-      <div role="alert" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">
+      <div role="alert" className="rounded-xl bg-destructive/8 px-4 py-3 text-sm text-destructive ring-1 ring-inset ring-destructive/20">
         Access denied
       </div>
     )
@@ -282,7 +282,7 @@ export default function UsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-title">Users</h1>
-          <p className="mt-1 text-[13px] text-white/40">Manage portal accounts and permissions.</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">Manage portal accounts and permissions.</p>
         </div>
         <Button variant="primary" size="sm" onClick={() => setModal('add')}>
           <Plus className="size-3.5" />
@@ -303,8 +303,8 @@ export default function UsersPage() {
             { label: 'Inactive', value: users.filter(u => !u.active).length  },
           ].map(({ label, value }) => (
             <article key={label} className="surface-card p-4">
-              <div className="text-caption text-white/40">{label}</div>
-              <div className="mt-1.5 font-mono text-3xl font-light text-white">{value}</div>
+              <div className="text-caption text-muted-foreground">{label}</div>
+              <div className="mt-1.5 font-mono text-3xl font-light text-foreground">{value}</div>
             </article>
           ))}
         </div>
@@ -318,11 +318,11 @@ export default function UsersPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[680px] text-sm">
               <thead>
-                <tr className="border-b border-white/[0.08]">
+                <tr className="border-b border-border">
                   {['Name', 'Email', 'Role', 'Sites', 'Status', 'Last login', ''].map(h => (
                     <th
                       key={h}
-                      className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/35"
+                      className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70"
                     >
                       {h}
                     </th>
@@ -341,32 +341,32 @@ export default function UsersPage() {
                   return (
                     <tr
                       key={u.id}
-                      className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors"
+                      className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
                     >
-                      <td className="px-4 py-3 font-medium text-white">{u.name}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-white/50">{u.email}</td>
-                      <td className="px-4 py-3 text-xs text-white/55">
+                      <td className="px-4 py-3 font-medium text-foreground">{u.name}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{u.email}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
                         {ROLE_LABELS[u.role as keyof typeof ROLE_LABELS] || u.role}
                       </td>
-                      <td className="px-4 py-3 text-xs text-white/40">
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
                         {isAllSites ? (
-                          <span className="text-emerald-400/60">All sites</span>
+                          <span className="text-primary">All sites</span>
                         ) : siteNames ? (
                           siteNames
                         ) : (
-                          <span className="text-white/25">—</span>
+                          <span className="text-muted-foreground/70">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${
+                        <span className={
                           u.active
-                            ? 'bg-emerald-500/15 text-emerald-300'
-                            : 'bg-white/[0.08] text-white/45'
-                        }`}>
+                            ? 'pill-base pill-ok'
+                            : 'pill-base pill-neutral'
+                        }>
                           {u.active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-white/40">
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                         {u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('en-IE') : '—'}
                       </td>
                       <td className="px-4 py-3 text-right">

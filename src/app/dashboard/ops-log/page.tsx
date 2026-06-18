@@ -74,7 +74,7 @@ const SECTION_DEFS = [
 
 const GRID_COLS = '1.3fr 1fr 0.55fr 0.7fr 0.7fr 0.7fr 1.6fr 1.2fr 2rem'
 
-const inputCls = 'w-full rounded-sm border border-white/10 bg-slate-900/80 px-2 py-1.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset font-mono'
+const inputCls = 'w-full rounded-sm border border-border bg-card px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset font-mono'
 
 function emptyRow(): OpsRow {
   return { name: '', shift: '', breakMins: '', break1: '', break2: '', break3: '', duties: '', extra: '' }
@@ -300,7 +300,7 @@ function OpsRowEditor({ row, onChange, onRemove }: {
       <input aria-label="Shift time (e.g. 06:30–13:30)"  className={inputCls} placeholder="06:30-13:30"    value={row.shift}    onChange={setShift} />
       <input
         aria-label="Break entitlement (auto-calculated from shift)"
-        className="w-full cursor-default border-0 bg-transparent px-2 py-1.5 text-center font-mono text-sm text-white/45 focus:outline-none"
+        className="w-full cursor-default border-0 bg-transparent px-2 py-1.5 text-center font-mono text-sm text-muted-foreground focus:outline-none"
         placeholder="—"
         value={row.breakMins}
         readOnly
@@ -315,7 +315,7 @@ function OpsRowEditor({ row, onChange, onRemove }: {
       <button
         onClick={onRemove}
         aria-label="Remove row"
-        className="flex size-8 shrink-0 items-center justify-center rounded text-white/30 hover:bg-red-500/10 hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="flex size-8 shrink-0 items-center justify-center rounded text-muted-foreground/70 hover:bg-destructive/8 hover:text-destructive transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       >
         <Trash2 className="size-3.5" />
       </button>
@@ -327,10 +327,10 @@ function OpsRowEditor({ row, onChange, onRemove }: {
 
 function StatusPill({ status }: { status: LogStatus }) {
   const cls = status === 'approved'
-    ? 'bg-emerald-500/15 text-emerald-300'
-    : 'bg-amber-500/15 text-amber-300'
+    ? 'pill-ok'
+    : 'pill-warning'
   return (
-    <span className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${cls}`}>
+    <span className={`pill-base ${cls}`}>
       {status === 'approved' && <Lock className="size-3" />}
       {status === 'approved' ? 'Approved' : 'Draft'}
     </span>
@@ -505,7 +505,7 @@ export default function OpsLogPage() {
               id="ops-site-select"
               value={siteId}
               onChange={e => setSiteId(Number(e.target.value))}
-              className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="h-9 rounded-xl border border-border bg-card px-3 text-sm text-foreground font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             >
               {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
@@ -515,7 +515,7 @@ export default function OpsLogPage() {
               type="date"
               value={date}
               onChange={e => setDate(e.target.value)}
-              className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="h-9 rounded-xl border border-border bg-card px-3 text-sm text-foreground font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             />
             <Button variant="tertiary" size="icon" onClick={fetchLog} disabled={loading} aria-label="Refresh log">
               <RefreshCw className={loading ? 'animate-spin' : ''} />
@@ -530,18 +530,18 @@ export default function OpsLogPage() {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <StatusPill status={meta.status} />
             {isApproved && meta.approvedBy && (
-              <span className="text-xs text-white/40">
+              <span className="text-xs text-muted-foreground">
                 Approved by {meta.approvedBy} · {formatStamp(meta.approvedAt)}
               </span>
             )}
             {!dirty && meta.updatedAt && (
-              <span className="text-xs text-white/30">
+              <span className="text-xs text-muted-foreground/70">
                 Last saved by {meta.updatedBy} · {formatStamp(meta.updatedAt)}
               </span>
             )}
           </div>
           {stateHint && (
-            <p className={`text-[13px] ${dirty ? 'text-amber-300/90' : 'text-white/40'}`}>{stateHint}</p>
+            <p className={`text-[13px] ${dirty ? 'text-warning' : 'text-muted-foreground'}`}>{stateHint}</p>
           )}
         </div>
 
@@ -601,7 +601,7 @@ export default function OpsLogPage() {
       {loading ? (
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl bg-white/[0.045]" />
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-muted/60" />
           ))}
         </div>
       ) : (
@@ -611,8 +611,8 @@ export default function OpsLogPage() {
           {showStarter && (
             <div className="surface-card flex flex-col items-start gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-headline text-white/85">Start today&apos;s log</h2>
-                <p className="mt-0.5 text-callout text-white/45">
+                <h2 className="text-headline text-foreground">Start today&apos;s log</h2>
+                <p className="mt-0.5 text-callout text-muted-foreground">
                   Pull in the department plan, copy yesterday&apos;s roster, or fill in the sections below.
                 </p>
               </div>
@@ -631,11 +631,11 @@ export default function OpsLogPage() {
           {/* ── Column headers — aligned with section body padding ────────────── */}
           <div
             aria-hidden="true"
-            className="hidden sm:grid gap-1 px-3 sticky top-0 z-10 bg-[oklch(0.14_0.012_255)]/95 backdrop-blur-sm py-2 -my-2"
+            className="hidden sm:grid gap-1 px-3 sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-2 -my-2"
             style={{ gridTemplateColumns: GRID_COLS }}
           >
             {['Name', 'Shift', 'Break', '1st 15', '30 min', '2nd 15', 'Duties', 'Cover / extra'].map(h => (
-              <span key={h} className="px-2 text-[11px] font-medium uppercase tracking-[0.1em] text-white/30">{h}</span>
+              <span key={h} className="px-2 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground/70">{h}</span>
             ))}
             <span className="w-8" />
           </div>
@@ -646,9 +646,9 @@ export default function OpsLogPage() {
             return (
               <section key={section.id} className="surface-card">
                 <div className="hairline-b flex items-center justify-between px-4 py-2.5">
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-white/50">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     {section.title}
-                    {sectionStaff > 0 && <span className="ml-2 font-normal normal-case tracking-normal text-white/30">{sectionStaff} staff</span>}
+                    {sectionStaff > 0 && <span className="ml-2 font-normal normal-case tracking-normal text-muted-foreground/70">{sectionStaff} staff</span>}
                   </h2>
                   <Button variant="ghost" size="xs" onClick={() => updateSection(section.id, [...section.rows, emptyRow()])} aria-label={`Add staff row to ${section.title}`}>
                     <Plus /> Add row
@@ -658,7 +658,7 @@ export default function OpsLogPage() {
                 <div className="overflow-x-auto">
                   <div className="min-w-[700px] space-y-1.5 p-3">
                     {section.rows.length === 0
-                      ? <p className="px-2 py-1 text-xs italic text-white/30">No staff assigned</p>
+                      ? <p className="px-2 py-1 text-xs italic text-muted-foreground/70">No staff assigned</p>
                       : section.rows.map((row, i) => (
                         <OpsRowEditor
                           key={i}
@@ -681,7 +681,7 @@ export default function OpsLogPage() {
             ] as const).map(({ key, label }) => (
               <section key={key} className="surface-card">
                 <div className="hairline-b px-4 py-2.5">
-                  <label htmlFor={`booking-${key}`} className="text-xs font-semibold uppercase tracking-wider text-white/50">{label}</label>
+                  <label htmlFor={`booking-${key}`} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</label>
                 </div>
                 <div className="p-3">
                   <textarea
@@ -690,7 +690,7 @@ export default function OpsLogPage() {
                     onChange={e => { setLog(l => ({ ...l, [key]: e.target.value })); setDirty(true) }}
                     rows={3}
                     placeholder={key === 'poolBookings' ? 'School 11:00–11:45, party bookings…' : 'Inductions, classes…'}
-                    className="w-full resize-y rounded-lg border border-white/10 bg-slate-900/80 px-3 py-2 font-mono text-sm text-white placeholder:text-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                    className="w-full resize-y rounded-lg border border-border bg-card px-3 py-2 font-mono text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                   />
                 </div>
               </section>
@@ -705,10 +705,10 @@ export default function OpsLogPage() {
                 aria-expanded={historyOpen}
                 className={`flex w-full items-center justify-between rounded-t-2xl px-4 py-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${historyOpen ? 'hairline-b' : 'rounded-b-2xl'}`}
               >
-                <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/50">
+                <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <History className="size-3.5" /> Change history · {changes.length} amendment{changes.length === 1 ? '' : 's'}
                 </span>
-                {historyOpen ? <ChevronUp className="size-4 text-white/40" /> : <ChevronDown className="size-4 text-white/40" />}
+                {historyOpen ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
               </button>
               {historyOpen && (
                 <div className="overflow-x-auto p-3">
@@ -716,20 +716,20 @@ export default function OpsLogPage() {
                     <thead>
                       <tr className="text-left">
                         {['Time', 'By', 'Section', 'Staff', 'Field', 'Was', 'Now'].map(h => (
-                          <th key={h} className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/30">{h}</th>
+                          <th key={h} className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {changes.map((c, i) => (
-                        <tr key={i} className="border-t border-white/[0.05]">
-                          <td className="whitespace-nowrap px-2 py-2 font-mono text-xs text-white/40">{formatStamp(c.changed_at)}</td>
-                          <td className="whitespace-nowrap px-2 py-2 text-sm text-white/70">{c.changed_by}</td>
-                          <td className="whitespace-nowrap px-2 py-2 text-sm text-white/50">{c.section}</td>
-                          <td className="whitespace-nowrap px-2 py-2 text-sm text-white/70">{c.staff_name}</td>
-                          <td className="whitespace-nowrap px-2 py-2 text-sm text-white/50">{c.field}</td>
-                          <td className="px-2 py-2 font-mono text-xs text-red-300/80">{c.old_value}</td>
-                          <td className="px-2 py-2 font-mono text-xs text-emerald-300/80">{c.new_value}</td>
+                        <tr key={i} className="border-t border-border">
+                          <td className="whitespace-nowrap px-2 py-2 font-mono text-xs text-muted-foreground">{formatStamp(c.changed_at)}</td>
+                          <td className="whitespace-nowrap px-2 py-2 text-sm text-muted-foreground">{c.changed_by}</td>
+                          <td className="whitespace-nowrap px-2 py-2 text-sm text-muted-foreground">{c.section}</td>
+                          <td className="whitespace-nowrap px-2 py-2 text-sm text-muted-foreground">{c.staff_name}</td>
+                          <td className="whitespace-nowrap px-2 py-2 text-sm text-muted-foreground">{c.field}</td>
+                          <td className="px-2 py-2 font-mono text-xs text-destructive">{c.old_value}</td>
+                          <td className="px-2 py-2 font-mono text-xs text-success">{c.new_value}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -24,7 +24,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex h-screen flex-col items-center justify-center">
         <Spinner className="size-7" />
-        <p className="mt-4 text-[15px] text-white/40">Loading…</p>
+        <p className="mt-4 text-[15px] text-muted-foreground">Loading…</p>
       </div>
     )
   }
@@ -37,7 +37,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar onMenuClick={() => setNavOpen(true)} />
         <main className="flex-1 overflow-y-auto px-5 py-6 md:px-6 lg:px-8 lg:py-8">
-          <div className="mx-auto w-full max-w-5xl">
+          <div className="mx-auto w-full max-w-6xl">
             <AnimatedPage>{children}</AnimatedPage>
           </div>
         </main>

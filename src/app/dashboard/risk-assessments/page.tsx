@@ -1,11 +1,20 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { type ColumnDef } from '@tanstack/react-table'
 import {
-  AlertTriangle, CalendarClock, CheckCircle2, ChevronDown, ChevronRight,
-  ExternalLink, Info, RefreshCw, ShieldAlert, User,
+  AlertTriangle, Building, CalendarClock, CheckCircle2, ChevronRight, ExternalLink,
+  Info, MapPin, RefreshCw, Search, ShieldAlert, ShieldCheck, User,
 } from 'lucide-react'
-import { LoadingState } from '@/components/ui/loading-state'
+import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
+import { SegmentedControl } from '@/components/ui/segmented-control'
+import { DataTable } from '@/components/ui/data-table'
+import { StatusPill, inferTone, type PillTone } from '@/components/ui/status-pill'
+import { Timeline, type TimelineEntry } from '@/components/ui/timeline'
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from '@/components/ui/sheet'
 
 // ── Types ────────────────────────────────────────────────────────────────────────
 
@@ -36,80 +45,89 @@ interface RiskMeta {
   allProperties?: { name: string; type: string }[]
 }
 
-// ── Risk helpers ─────────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-type Tone = 'ok' | 'warning' | 'critical' | 'neutral'
-
-function riskTone(risk: string | null): Tone {
+const RISK_RANK = ['negligible', 'very low', 'low', 'minor', 'medium', 'moderate', 'high', 'major', 'severe', 'critical', 'very high', 'extreme']
+function riskRank(risk: string | null): number {
   const r = (risk || '').toLowerCase()
-  if (!r) return 'neutral'
-  if (/(critical|extreme|severe|very high)/.test(r)) return 'critical'
-  if (/(high|major|medium|moderate|minor)/.test(r)) return 'warning'
-  if (/(low|negligible)/.test(r)) return 'ok'
-  return 'neutral'
-}
-
-const TONE_BG: Record<Tone, string> = {
-  ok:       'bg-emerald-500/15 text-emerald-300',
-  warning:  'bg-amber-500/15 text-amber-300',
-  critical: 'bg-red-500/15 text-red-300',
-  neutral:  'bg-white/[0.08] text-white/60',
+  const i = RISK_RANK.findIndex(x => r.includes(x))
+  return i === -1 ? -1 : i
 }
 
 function formatDate(d: string | null) {
   if (!d) return null
   return new Date(d).toLocaleDateString('en-IE', { day: '2-digit', month: 'short', year: 'numeric' })
 }
+function formatDateTime(d: string | null) {
+  if (!d) return null
+  return new Date(d).toLocaleString('en-IE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
 
-// ── Pill ─────────────────────────────────────────────────────────────────────────
+function statusTone(a: RiskAssessment): PillTone {
+  if (a.complete) return 'ok'
+  if (a.reviewOverdue) return 'critical'
+  return 'warning'
+}
 
-function Pill({ tone, label }: { tone: Tone; label: string }) {
+// ── KPI tile ──────────────────────────────────────────────────────────────────
+
+function Kpi({ icon: Icon, label, value, tone }: {
+  icon: React.ElementType; label: string; value: number; tone: PillTone
+}) {
+  const color =
+    value === 0 ? 'text-success'
+    : tone === 'critical' ? 'text-destructive'
+    : tone === 'warning' ? 'text-warning'
+    : tone === 'ok' ? 'text-success'
+    : 'text-foreground'
   return (
-    <span className={`inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium whitespace-nowrap ${TONE_BG[tone]}`}>
-      {label}
-    </span>
+    <div className="surface-card flex items-center gap-3 p-4">
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+        <Icon className="size-4.5" />
+      </div>
+      <div>
+        <div className={`font-mono text-xl leading-none font-medium ${color}`}>{value}</div>
+        <div className="mt-1 text-caption text-muted-foreground">{label}</div>
+      </div>
+    </div>
   )
 }
 
-// ── Schema debug panel ───────────────────────────────────────────────────────────
+// ── Schema debug (collapsed unless detection gaps) ──────────────────────────────
 
 function SchemaDebug({ meta }: { meta: RiskMeta }) {
   const [open, setOpen] = useState(false)
   const missing = Object.entries(meta.detected).filter(([, v]) => !v).map(([k]) => k)
-  if (missing.length === 0) return null // all fields detected, no need to show
-
+  if (missing.length === 0) return null
   return (
-    <div className="rounded-xl bg-amber-500/10 ring-1 ring-inset ring-amber-500/20">
+    <div className="rounded-xl border border-warning/30 bg-warning/8">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-amber-300 focus:outline-none"
+        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-warning focus:outline-none"
       >
         <Info className="size-4 shrink-0" />
         <span className="flex-1">
-          Some Notion columns could not be auto-detected: <strong>{missing.join(', ')}</strong>. Expand for details.
+          Some Notion columns weren&apos;t auto-detected: <strong>{missing.join(', ')}</strong>. Expand for details.
         </span>
-        {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+        <ChevronRight className={`size-4 transition-transform ${open ? 'rotate-90' : ''}`} />
       </button>
       {open && (
-        <div className="border-t border-amber-500/15 px-4 pb-4 pt-3 space-y-3 text-xs text-amber-200/70">
-          <div>
-            <p className="mb-1 font-semibold text-amber-200">Detected mappings</p>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-              {Object.entries(meta.detected).map(([field, col]) => (
-                <>
-                  <dt key={`${field}-k`} className="font-mono text-amber-300/60">{field}</dt>
-                  <dd key={`${field}-v`} className={col ? 'text-amber-100' : 'text-red-300/80'}>{col ?? '— not found'}</dd>
-                </>
-              ))}
-            </dl>
-          </div>
+        <div className="space-y-3 border-t border-warning/20 px-4 pt-3 pb-4 text-xs text-foreground/70">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+            {Object.entries(meta.detected).map(([field, col]) => (
+              <div key={field} className="contents">
+                <dt className="font-mono text-muted-foreground">{field}</dt>
+                <dd className={col ? 'text-foreground' : 'text-destructive'}>{col ?? '— not found'}</dd>
+              </div>
+            ))}
+          </dl>
           {meta.allProperties && meta.allProperties.length > 0 && (
             <div>
-              <p className="mb-1 font-semibold text-amber-200">All Notion columns ({meta.allProperties.length})</p>
+              <p className="mb-1 font-semibold text-foreground">All Notion columns ({meta.allProperties.length})</p>
               <div className="flex flex-wrap gap-1.5">
                 {meta.allProperties.map(p => (
-                  <span key={p.name} className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono">
-                    {p.name} <span className="text-white/30">({p.type})</span>
+                  <span key={p.name} className="rounded bg-muted px-1.5 py-0.5 font-mono">
+                    {p.name} <span className="text-muted-foreground">({p.type})</span>
                   </span>
                 ))}
               </div>
@@ -121,126 +139,126 @@ function SchemaDebug({ meta }: { meta: RiskMeta }) {
   )
 }
 
-// ── Area section ─────────────────────────────────────────────────────────────────
+// ── Detail drawer ────────────────────────────────────────────────────────────
 
-function AreaSection({ area, items }: { area: string; items: RiskAssessment[] }) {
-  const [open, setOpen] = useState(true)
-  const done  = items.filter(a => a.complete).length
-  const total = items.length
-  const pct   = total > 0 ? Math.round((done / total) * 100) : 0
-
-  const barColor =
-    pct >= 80 ? 'bg-emerald-500/60'
-    : pct >= 50 ? 'bg-amber-500/60'
-    : 'bg-red-500/60'
-
+function MetaRow({ icon: Icon, label, children }: {
+  icon: React.ElementType; label: string; children: React.ReactNode
+}) {
   return (
-    <section className="surface-card overflow-hidden">
-      {/* Area header */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-white/[0.025] focus:outline-none focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-ring/40"
-        aria-expanded={open}
-      >
-        <span className="text-white/30">
-          {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-        </span>
-        <span className="flex-1 text-sm font-semibold text-white">{area}</span>
-        {/* Mini progress bar */}
-        <div className="hidden sm:flex items-center gap-2">
-          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-white/[0.08]">
-            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${pct}%` }} />
-          </div>
-          <span className="min-w-[6ch] text-right font-mono text-[12px] text-white/40">
-            {done}/{total}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          {done === total && total > 0
-            ? <CheckCircle2 className="size-4 text-emerald-400" />
-            : total - done > 0
-              ? <AlertTriangle className="size-4 text-amber-400/70" />
-              : null}
-          <span className="text-caption text-white/30 sm:hidden">{done}/{total}</span>
-        </div>
-      </button>
-
-      {/* Assessment rows */}
-      {open && (
-        <div className="border-t border-white/[0.06]">
-          {items.map((a, idx) => (
-            <div
-              key={a.pageId}
-              className={`flex items-start gap-3 px-4 py-3 ${idx < items.length - 1 ? 'border-b border-white/[0.04]' : ''}`}
-            >
-              {/* Status dot */}
-              <div className="mt-0.5 shrink-0">
-                {a.complete
-                  ? <CheckCircle2 className="size-4 text-emerald-400" />
-                  : <ShieldAlert className={`size-4 ${a.reviewOverdue ? 'text-red-400' : 'text-white/25'}`} />}
-              </div>
-
-              {/* Title + meta */}
-              <div className="min-w-0 flex-1">
-                <p className={`text-[13.5px] font-medium leading-snug ${a.complete ? 'text-white/60' : 'text-white'}`}>
-                  {a.title}
-                </p>
-                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-white/35">
-                  {a.owner && (
-                    <span className="flex items-center gap-1">
-                      <User className="size-3" />{a.owner}
-                    </span>
-                  )}
-                  {a.reviewDate && (
-                    <span className={`flex items-center gap-1 ${a.reviewOverdue ? 'text-red-300' : ''}`}>
-                      <CalendarClock className="size-3" />
-                      Review {formatDate(a.reviewDate)}{a.reviewOverdue ? ' · overdue' : ''}
-                    </span>
-                  )}
-                  {a.status && !a.complete && (
-                    <span className="text-white/30">{a.status}</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Pills + link */}
-              <div className="flex shrink-0 items-center gap-1.5">
-                {a.risk && <Pill tone={riskTone(a.risk)} label={a.risk} />}
-                <a
-                  href={a.url} target="_blank" rel="noreferrer"
-                  aria-label="Open in Notion"
-                  onClick={e => e.stopPropagation()}
-                  className="flex size-6 items-center justify-center rounded text-white/25 hover:text-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-                >
-                  <ExternalLink className="size-3.5" />
-                </a>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
+    <div className="flex items-start gap-3 py-2.5">
+      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <div className="text-caption text-muted-foreground">{label}</div>
+        <div className="mt-0.5 text-callout text-foreground">{children}</div>
+      </div>
+    </div>
   )
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────────
+function DetailDrawer({ item, onClose }: { item: RiskAssessment | null; onClose: () => void }) {
+  const a = item
+  const timeline: TimelineEntry[] = useMemo(() => {
+    if (!a) return []
+    const entries: TimelineEntry[] = []
+    if (a.reviewDate) {
+      entries.push({
+        id: 'review',
+        title: a.reviewOverdue ? 'Review overdue' : 'Next review due',
+        timestamp: formatDate(a.reviewDate) ?? undefined,
+        tone: a.reviewOverdue ? 'critical' : 'warning',
+        icon: CalendarClock,
+        meta: a.reviewOverdue ? 'Past the scheduled review date' : 'Scheduled review date',
+      })
+    }
+    entries.push({
+      id: 'status',
+      title: a.complete ? 'Marked complete' : `Status: ${a.status ?? 'Not started'}`,
+      tone: statusTone(a),
+      icon: a.complete ? CheckCircle2 : ShieldAlert,
+      meta: a.complete ? 'Assessment signed off' : 'Currently in progress',
+    })
+    entries.push({
+      id: 'edited',
+      title: 'Last updated',
+      timestamp: formatDateTime(a.lastEdited) ?? undefined,
+      tone: 'neutral',
+      meta: 'Most recent change in Notion',
+    })
+    return entries
+  }, [a])
+
+  return (
+    <Sheet open={!!a} onOpenChange={(o) => { if (!o) onClose() }}>
+      <SheetContent side="right" className="w-full gap-0 sm:max-w-md">
+        {a && (
+          <>
+            <SheetHeader className="gap-2 border-b border-border p-5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {a.risk && <StatusPill label={a.risk} tone={inferTone(a.risk)} />}
+                <StatusPill label={a.complete ? 'Complete' : a.reviewOverdue ? 'Overdue' : (a.status ?? 'Outstanding')} tone={statusTone(a)} />
+              </div>
+              <SheetTitle className="text-title leading-snug text-foreground">{a.title}</SheetTitle>
+              <SheetDescription>
+                {[a.category, a.site].filter(Boolean).join(' · ') || 'Uncategorised'}
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {/* Record fields */}
+              <div className="divide-y divide-border">
+                <MetaRow icon={MapPin} label="Area">{a.category || 'Uncategorised'}</MetaRow>
+                {a.site && <MetaRow icon={Building} label="Site">{a.site}</MetaRow>}
+                <MetaRow icon={User} label="Owner">{a.owner || <span className="text-muted-foreground">Unassigned</span>}</MetaRow>
+                <MetaRow icon={CalendarClock} label="Review date">
+                  {a.reviewDate
+                    ? <span className={a.reviewOverdue ? 'text-destructive' : ''}>{formatDate(a.reviewDate)}{a.reviewOverdue ? ' · overdue' : ''}</span>
+                    : <span className="text-muted-foreground">Not set</span>}
+                </MetaRow>
+              </div>
+
+              {/* Activity timeline */}
+              <div className="mt-6">
+                <h4 className="mb-3 text-subhead text-foreground">Activity</h4>
+                <Timeline entries={timeline} />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="border-t border-border p-4">
+              <Button
+                variant="primary" size="default" className="w-full"
+                render={<a href={a.url} target="_blank" rel="noreferrer" />}
+              >
+                Open in Notion <ExternalLink className="size-4" />
+              </Button>
+            </div>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RiskAssessmentsPage() {
   const [assessments, setAssessments] = useState<RiskAssessment[]>([])
-  const [meta,        setMeta]        = useState<RiskMeta | null>(null)
-  const [loading,     setLoading]     = useState(true)
-  const [refreshing,  setRefreshing]  = useState(false)
-  const [error,       setError]       = useState<string | null>(null)
+  const [meta, setMeta] = useState<RiskMeta | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const [siteFilter,   setSiteFilter]   = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'complete' | 'outstanding'>('all')
+  const [query, setQuery] = useState('')
+  const [siteFilter, setSiteFilter] = useState('')
+  const [areaFilter, setAreaFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'outstanding' | 'complete'>('all')
+  const [active, setActive] = useState<RiskAssessment | null>(null)
 
   const fetchData = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
     setError(null)
-    if (mode === 'initial') setLoading(true)
-    else setRefreshing(true)
+    if (mode === 'initial') setLoading(true); else setRefreshing(true)
     try {
-      const res  = await fetch('/api/notion/risk-assessments', { cache: 'no-store' })
+      const res = await fetch('/api/notion/risk-assessments', { cache: 'no-store' })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || `API error: ${res.status}`)
       setAssessments(data.assessments || [])
@@ -248,8 +266,7 @@ export default function RiskAssessmentsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      setLoading(false); setRefreshing(false)
     }
   }, [])
 
@@ -258,136 +275,186 @@ export default function RiskAssessmentsPage() {
     void fetchData('initial')
   }, [fetchData])
 
-  // Apply filters
+  // Area options — prefer the detected category options, else derive from data.
+  const areaOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const a of assessments) if (a.category) set.add(a.category)
+    return [...set].sort()
+  }, [assessments])
+
   const visible = useMemo(() => assessments.filter(a => {
     if (siteFilter && a.site !== siteFilter) return false
-    if (statusFilter === 'complete'    && !a.complete)  return false
-    if (statusFilter === 'outstanding' &&  a.complete)  return false
+    if (areaFilter && a.category !== areaFilter) return false
+    if (statusFilter === 'complete' && !a.complete) return false
+    if (statusFilter === 'outstanding' && a.complete) return false
     return true
-  }), [assessments, siteFilter, statusFilter])
+  }), [assessments, siteFilter, areaFilter, statusFilter])
 
-  // Group by area (category), preserving Notion order within each group
-  const areaGroups = useMemo(() => {
-    const map = new Map<string, RiskAssessment[]>()
-    for (const a of visible) {
-      const key = a.category || 'Uncategorised'
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(a)
-    }
-    // Sort areas: areas with outstanding items first, then by name
-    return [...map.entries()].sort(([aName, aItems], [bName, bItems]) => {
-      const aOutstanding = aItems.filter(x => !x.complete).length
-      const bOutstanding = bItems.filter(x => !x.complete).length
-      if (aOutstanding !== bOutstanding) return bOutstanding - aOutstanding
-      return aName.localeCompare(bName)
-    })
-  }, [visible])
+  const overdue     = visible.filter(a => a.reviewOverdue).length
+  const highRisk    = visible.filter(a => !a.complete && riskRank(a.risk) >= 6).length
+  const outstanding = visible.filter(a => !a.complete).length
+  const complete    = visible.filter(a => a.complete).length
 
-  const totalDone        = visible.filter(a => a.complete).length
-  const totalOutstanding = visible.length - totalDone
-  const overdueCount     = visible.filter(a => a.reviewOverdue).length
-
-  if (loading && assessments.length === 0 && !error) {
-    return (
-      <div className="space-y-6">
-        <div className="pb-4 border-b border-white/[0.06]">
-          <div className="h-7 w-52 animate-pulse rounded-lg bg-white/[0.06]" />
-          <div className="mt-2 h-4 w-72 animate-pulse rounded bg-white/[0.04]" />
-        </div>
-        <LoadingState label="Loading risk assessments…" />
-      </div>
-    )
-  }
+  const columns = useMemo<ColumnDef<RiskAssessment>[]>(() => [
+    {
+      accessorKey: 'title',
+      header: 'Assessment',
+      cell: ({ row }) => {
+        const a = row.original
+        return (
+          <div className="flex items-center gap-2.5">
+            {a.complete
+              ? <CheckCircle2 className="size-4 shrink-0 text-success" />
+              : <ShieldAlert className={`size-4 shrink-0 ${a.reviewOverdue ? 'text-destructive' : 'text-muted-foreground/50'}`} />}
+            <span className="font-medium text-foreground">{a.title}</span>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'category',
+      header: 'Area',
+      cell: ({ getValue }) => <span className="text-muted-foreground">{(getValue() as string) || 'Uncategorised'}</span>,
+    },
+    {
+      accessorKey: 'risk',
+      header: 'Risk',
+      sortingFn: (a, b) => riskRank(a.original.risk) - riskRank(b.original.risk),
+      cell: ({ row }) => row.original.risk
+        ? <StatusPill label={row.original.risk} tone={inferTone(row.original.risk)} />
+        : <span className="text-muted-foreground/60">—</span>,
+    },
+    {
+      id: 'status',
+      accessorFn: (r) => (r.complete ? 'complete' : r.reviewOverdue ? 'overdue' : 'outstanding'),
+      header: 'Status',
+      cell: ({ row }) => {
+        const a = row.original
+        return <StatusPill label={a.complete ? 'Complete' : a.reviewOverdue ? 'Overdue' : (a.status ?? 'Outstanding')} tone={statusTone(a)} />
+      },
+    },
+    {
+      accessorKey: 'owner',
+      header: 'Owner',
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null
+        return v ? <span className="text-muted-foreground">{v}</span> : <span className="text-muted-foreground/50">Unassigned</span>
+      },
+    },
+    {
+      accessorKey: 'reviewDate',
+      header: 'Review',
+      cell: ({ row }) => {
+        const a = row.original
+        if (!a.reviewDate) return <span className="text-muted-foreground/50">—</span>
+        return (
+          <span className={`font-mono text-[13px] ${a.reviewOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+            {formatDate(a.reviewDate)}
+          </span>
+        )
+      },
+    },
+  ], [])
 
   return (
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-white/[0.06]">
+      <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-title">Risk Assessments</h1>
-          <p className="mt-1 text-callout text-white/50">
+          <h1 className="text-display text-foreground">Risk Assessments</h1>
+          <p className="mt-1 text-callout text-muted-foreground">
             {visible.length > 0
-              ? `${totalDone} of ${visible.length} complete · ${totalOutstanding} outstanding${overdueCount > 0 ? ` · ${overdueCount} review overdue` : ''}`
+              ? `${complete} of ${visible.length} complete · ${outstanding} outstanding${overdue ? ` · ${overdue} review overdue` : ''}`
               : 'Risk register from Notion'}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Status tabs */}
-          <div role="tablist" className="inline-flex rounded-xl bg-white/[0.06] p-1">
-            {([
-              { id: 'all',         label: 'All' },
-              { id: 'outstanding', label: 'Outstanding' },
-              { id: 'complete',    label: 'Complete' },
-            ] as const).map(t => (
-              <button
-                key={t.id}
-                role="tab"
-                aria-selected={statusFilter === t.id}
-                onClick={() => setStatusFilter(t.id)}
-                className={`rounded-lg px-3 py-1.5 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
-                  statusFilter === t.id
-                    ? 'bg-white/[0.12] font-medium text-white shadow-[0_1px_2px_rgb(0_0_0/0.2)]'
-                    : 'text-white/50 hover:text-white/80'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Site filter */}
-          {(meta?.siteOptions?.length ?? 0) > 0 && (
-            <>
-              <label htmlFor="ra-site" className="sr-only">Site</label>
-              <select
-                id="ra-site"
-                value={siteFilter}
-                onChange={e => setSiteFilter(e.target.value)}
-                className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-              >
-                <option value="">All sites</option>
-                {(meta?.siteOptions ?? []).map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </>
-          )}
-
-          {/* Refresh */}
-          <button
-            onClick={() => void fetchData('refresh')}
-            disabled={loading || refreshing}
-            aria-label="Refresh risk assessments"
-            className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 text-white/50 hover:text-white disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-          >
-            <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
+        <Button variant="tertiary" size="sm" onClick={() => void fetchData('refresh')} disabled={loading || refreshing}>
+          <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+        </Button>
       </div>
 
       {error && (
-        <div role="alert" aria-live="polite" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">
+        <div role="alert" className="rounded-xl bg-destructive/8 px-4 py-3 text-sm text-destructive ring-1 ring-inset ring-destructive/20">
           {error}
         </div>
       )}
 
-      {/* Schema debug panel — shows which Notion columns were auto-detected */}
       {meta && <SchemaDebug meta={meta} />}
 
-      {!error && assessments.length === 0 && !loading ? (
-        <div className="surface-card px-6 py-12 text-center text-[15px] text-white/40">
-          No risk assessments found in the Notion database.
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi icon={CalendarClock} label="Reviews overdue" value={overdue} tone="critical" />
+        <Kpi icon={ShieldAlert} label="High / critical" value={highRisk} tone="warning" />
+        <Kpi icon={AlertTriangle} label="Outstanding" value={outstanding} tone="warning" />
+        <Kpi icon={CheckCircle2} label="Complete" value={complete} tone="ok" />
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[200px] flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search assessments…"
+            aria-label="Search assessments"
+            className="h-9 w-full rounded-lg border border-input bg-card pr-3 pl-9 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
+          />
         </div>
-      ) : visible.length === 0 ? (
-        <div className="surface-card px-6 py-12 text-center text-[15px] text-white/40">
-          No assessments match the current filters.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {areaGroups.map(([area, items]) => (
-            <AreaSection key={area} area={area} items={items} />
+        <SegmentedControl
+          aria-label="Filter by status"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'outstanding', label: 'Outstanding' },
+            { value: 'complete', label: 'Complete' },
+          ]}
+          className="h-9"
+        />
+        {areaOptions.length > 0 && (
+          <Select value={areaFilter} onChange={e => setAreaFilter(e.target.value)} className="w-auto min-w-[140px]">
+            <option value="">All areas</option>
+            {areaOptions.map(a => <option key={a} value={a}>{a}</option>)}
+          </Select>
+        )}
+        {(meta?.siteOptions?.length ?? 0) > 0 && (
+          <Select value={siteFilter} onChange={e => setSiteFilter(e.target.value)} className="w-auto min-w-[140px]">
+            <option value="">All sites</option>
+            {(meta?.siteOptions ?? []).map(s => <option key={s} value={s}>{s}</option>)}
+          </Select>
+        )}
+      </div>
+
+      {/* Table */}
+      {loading && assessments.length === 0 ? (
+        <div className="surface-card divide-y divide-border p-0">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-3.5">
+              <div className="h-4 flex-1 animate-pulse rounded bg-muted" />
+              <div className="h-5 w-20 animate-pulse rounded-full bg-muted" />
+              <div className="h-5 w-20 animate-pulse rounded-full bg-muted" />
+            </div>
           ))}
         </div>
+      ) : !error && assessments.length === 0 ? (
+        <div className="surface-card px-6 py-16 text-center text-[15px] text-muted-foreground">
+          <ShieldCheck className="mx-auto mb-3 size-8 text-muted-foreground/40" />
+          No risk assessments found in the Notion database.
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={visible}
+          globalFilter={query}
+          onRowClick={setActive}
+          isRowActive={(r) => r.pageId === active?.pageId}
+          emptyMessage="No assessments match the current filters."
+        />
       )}
+
+      <DetailDrawer item={active} onClose={() => setActive(null)} />
     </div>
   )
 }

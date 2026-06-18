@@ -113,18 +113,13 @@ function formatStamp(iso: string | null): string | null {
 
 function StatusPill({ status, label }: { status: StockStatus; label: string }) {
   const cls =
-    status === 'ok'       ? 'bg-emerald-500/15 text-emerald-300'
-    : status === 'warning'  ? 'bg-amber-500/15 text-amber-300'
-    : status === 'critical' ? 'bg-red-500/15 text-red-300'
-    : 'bg-white/[0.08] text-white/60'
-
-  const pulse =
-    status === 'critical' ? 'pill-pulse-critical'
-    : status === 'warning'  ? 'pill-pulse-warning'
-    : ''
+    status === 'ok'       ? 'pill-base pill-ok'
+    : status === 'warning'  ? 'pill-base pill-warning'
+    : status === 'critical' ? 'pill-base pill-critical'
+    : 'pill-base pill-neutral'
 
   return (
-    <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${cls} ${pulse}`}>
+    <span className={cls}>
       {label}
     </span>
   )
@@ -153,17 +148,17 @@ function TankCard({
     : 'No data'
 
   const fillColor =
-    status === 'critical' ? 'bg-red-500/70'
-    : status === 'warning'  ? 'bg-amber-500/60'
-    : status === 'ok'       ? 'bg-emerald-500/60'
-    : 'bg-white/15'
+    status === 'critical' ? 'bg-destructive'
+    : status === 'warning'  ? 'bg-warning'
+    : status === 'ok'       ? 'bg-success'
+    : 'bg-muted-foreground/30'
 
   return (
     <article className="surface-card p-5">
-      <div className="flex items-start justify-between gap-3 pb-4 border-b border-white/[0.06]">
+      <div className="flex items-start justify-between gap-3 pb-4 border-b border-border">
         <div>
-          <h3 className="text-headline text-white">{label}</h3>
-          <p className="mt-0.5 text-caption text-white/40">{description}</p>
+          <h3 className="text-headline text-foreground">{label}</h3>
+          <p className="mt-0.5 text-caption text-muted-foreground">{description}</p>
         </div>
         <StatusPill status={status} label={statusLabel} />
       </div>
@@ -171,7 +166,7 @@ function TankCard({
       <div className="mt-5 flex items-end gap-5">
         {/* Tank level gauge */}
         <div className="flex flex-col items-center gap-2">
-          <div className="relative w-12 h-32 rounded-xl overflow-hidden bg-white/[0.05] ring-1 ring-inset ring-white/10">
+          <div className="relative w-12 h-32 rounded-xl overflow-hidden bg-muted/60 ring-1 ring-inset ring-border">
             {/* Fill */}
             <div
               className={`absolute bottom-0 left-0 right-0 transition-all duration-700 ${fillColor}`}
@@ -181,29 +176,29 @@ function TankCard({
             {[75, 50, 25].map(pct => (
               <div
                 key={pct}
-                className="absolute left-0 right-0 border-t border-white/10"
+                className="absolute left-0 right-0 border-t border-border"
                 style={{ bottom: `${pct}%` }}
               />
             ))}
             {/* Percentage overlay */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[10px] font-semibold text-white/70 drop-shadow">
+              <span className="text-[10px] font-semibold text-foreground drop-shadow">
                 {value !== null ? `${Math.round(fillPct)}%` : '—'}
               </span>
             </div>
           </div>
-          <span className="text-caption text-white/30">of {capacity} L</span>
+          <span className="text-caption text-muted-foreground/70">of {capacity} L</span>
         </div>
 
         {/* Numeric value */}
         <div className="flex-1 min-w-0">
-          <div className="font-mono leading-none text-white" style={{ fontSize: 'clamp(40px, 5vw, 60px)' }}>
+          <div className="font-mono leading-none text-foreground" style={{ fontSize: 'clamp(40px, 5vw, 60px)' }}>
             {value !== null ? Math.round(value) : '—'}
             {value !== null && (
-              <span className="ml-2 text-2xl text-white/40">L</span>
+              <span className="ml-2 text-2xl text-muted-foreground">L</span>
             )}
           </div>
-          <div className="mt-3 space-y-1 text-caption text-white/35">
+          <div className="mt-3 space-y-1 text-caption text-muted-foreground/70">
             <div>Capacity {capacity} L · Critical below {CRITICAL_PCT}%</div>
             {readingTime
               ? <div>Last reading: {readingTime}</div>
@@ -255,10 +250,10 @@ export default function PlantRoomPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-white/[0.06]">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between pb-4 border-b border-border">
         <div>
           <h1 className="text-title">Plant Room</h1>
-          <p className="mt-1 text-callout text-white/50">Current chlorine stock levels from Trail.</p>
+          <p className="mt-1 text-callout text-muted-foreground">Current chlorine stock levels from Trail.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <label htmlFor="plant-site-select" className="sr-only">Site</label>
@@ -266,7 +261,7 @@ export default function PlantRoomPage() {
             id="plant-site-select"
             value={selectedSiteId}
             onChange={e => setSelectedSiteId(Number(e.target.value))}
-            className="h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="h-9 rounded-xl border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
@@ -274,7 +269,7 @@ export default function PlantRoomPage() {
             onClick={() => fetchData(selectedSiteId)}
             disabled={loading}
             aria-label="Refresh plant room data"
-            className="flex items-center gap-2 h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white/60 hover:text-white disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="flex items-center gap-2 h-9 rounded-xl border border-border bg-card px-3 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -283,7 +278,7 @@ export default function PlantRoomPage() {
       </div>
 
       {error && (
-        <div role="alert" aria-live="polite" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">
+        <div role="alert" aria-live="polite" className="rounded-xl bg-destructive/8 px-4 py-3 text-sm text-destructive ring-1 ring-inset ring-destructive/20">
           {error}
         </div>
       )}
@@ -291,7 +286,7 @@ export default function PlantRoomPage() {
       {loading && !stockReading ? (
         <LoadingState label="Loading plant room data…" />
       ) : !stockReading ? (
-        <div className="surface-card px-6 py-12 text-center text-[15px] text-white/40">
+        <div className="surface-card px-6 py-12 text-center text-[15px] text-muted-foreground">
           No chlorine stock data found for this site in the last {HISTORY_DAYS} days.
         </div>
       ) : (

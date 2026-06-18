@@ -67,7 +67,7 @@ export default function SettingsPage() {
 
   if (!user || !isAdmin) {
     return (
-      <div role="alert" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">
+      <div role="alert" className="rounded-xl bg-destructive/8 px-4 py-3 text-sm text-destructive ring-1 ring-inset ring-destructive/20">
         Access denied
       </div>
     )
@@ -83,21 +83,21 @@ export default function SettingsPage() {
 
       {/* ── Notion Integration ─────────────────────────────────────────────────── */}
       <div className="space-y-2">
-        <h2 className="text-headline text-white/80">Notion integration</h2>
+        <h2 className="text-headline text-foreground">Notion integration</h2>
         <article className="surface-card space-y-4 p-5">
           <div className="flex items-start justify-between gap-4">
-            <p className="max-w-lg text-callout text-white/45">
+            <p className="max-w-lg text-callout text-muted-foreground">
               Used for the incidents database. Create an Internal Integration Token in your Notion workspace settings.
             </p>
             {notionConfigured && (
-              <span className="flex h-6 shrink-0 items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 text-[12px] font-medium text-emerald-300">
+              <span className="pill-base pill-ok shrink-0">
                 <CheckCircle2 className="size-3" />Configured
               </span>
             )}
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="notion-key" className="block text-caption text-white/50">
+            <label htmlFor="notion-key" className="block text-caption text-muted-foreground">
               {notionConfigured ? 'Replace API key' : 'API key'}
             </label>
             <div className="flex gap-2">
@@ -108,14 +108,14 @@ export default function SettingsPage() {
                   value={notionKey}
                   onChange={e => { setNotionKey(e.target.value); setNotionStatus('idle') }}
                   placeholder={notionConfigured ? 'Enter new key to replace existing' : 'secret_…'}
-                  className="w-full rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2.5 pr-11 text-sm text-white font-mono placeholder:text-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  className="w-full rounded-xl border border-border bg-card px-3 py-2.5 pr-11 text-sm text-foreground font-mono placeholder:text-muted-foreground/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 />
                 <button
                   type="button"
                   onClick={() => setShowKey(v => !v)}
                   aria-label={showKey ? 'Hide API key' : 'Show API key'}
                   aria-pressed={showKey}
-                  className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-white/30 hover:text-white/60 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground/70 hover:text-muted-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 >
                   {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -123,7 +123,7 @@ export default function SettingsPage() {
               <button
                 onClick={saveNotionKey}
                 disabled={savingNotion || !notionKey.trim()}
-                className="flex items-center gap-2 rounded-xl bg-white/[0.06] px-4 py-2 text-sm text-white/70 hover:bg-white/[0.09] hover:text-white disabled:cursor-not-allowed disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="flex items-center gap-2 rounded-xl bg-muted/60 px-4 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               >
                 {savingNotion && <RefreshCw className="size-3.5 animate-spin" />}
                 Save
@@ -132,19 +132,19 @@ export default function SettingsPage() {
           </div>
 
           {notionStatus === 'saved' && (
-            <p role="status" className="flex items-center gap-1.5 text-[13px] text-emerald-300">
+            <p role="status" className="flex items-center gap-1.5 text-[13px] text-success">
               <CheckCircle2 className="size-3.5" />API key saved.
             </p>
           )}
           {notionStatus === 'error' && (
-            <p role="alert" className="text-[13px] text-red-300">{notionError}</p>
+            <p role="alert" className="text-[13px] text-destructive">{notionError}</p>
           )}
         </article>
       </div>
 
       {/* ── Trail API ──────────────────────────────────────────────────────────── */}
       <div className="space-y-2">
-        <h2 className="text-headline text-white/80">Trail API connection</h2>
+        <h2 className="text-headline text-foreground">Trail API connection</h2>
         <article className="surface-card p-5">
           <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
             {[
@@ -154,8 +154,8 @@ export default function SettingsPage() {
               { label: 'Cache TTL', value: '5 min (chemistry/tasks) · 60 min (scores)' },
             ].map(({ label, value }) => (
               <div key={label}>
-                <div className="mb-0.5 text-caption text-white/40">{label}</div>
-                <div className="text-[13px] font-mono text-white/70">{value}</div>
+                <div className="mb-0.5 text-caption text-muted-foreground">{label}</div>
+                <div className="text-[13px] font-mono text-muted-foreground">{value}</div>
               </div>
             ))}
           </div>
@@ -165,23 +165,23 @@ export default function SettingsPage() {
       {/* ── System settings ────────────────────────────────────────────────────── */}
       {!loading && displaySettings.length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-headline text-white/80">System settings</h2>
+          <h2 className="text-headline text-foreground">System settings</h2>
           <article className="surface-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[480px] text-[13px] font-mono">
                 <thead>
-                  <tr className="border-b border-white/[0.08]">
-                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/35">Key</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/35">Value</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/35">Updated</th>
+                  <tr className="border-b border-border">
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">Key</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">Value</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">Updated</th>
                   </tr>
                 </thead>
                 <tbody>
                   {displaySettings.map(s => (
-                    <tr key={s.key} className="border-b border-white/[0.04] last:border-0">
-                      <td className="px-4 py-2.5 text-white/70">{s.key}</td>
-                      <td className="px-4 py-2.5 text-white/50">{s.value}</td>
-                      <td className="px-4 py-2.5 text-white/30">{s.updated_at}</td>
+                    <tr key={s.key} className="border-b border-border last:border-0">
+                      <td className="px-4 py-2.5 text-foreground">{s.key}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{s.value}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground/70">{s.updated_at}</td>
                     </tr>
                   ))}
                 </tbody>

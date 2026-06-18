@@ -14,18 +14,18 @@ interface TrailScore {
 }
 
 function scoreColour(v: number) {
-  if (v >= 90) return 'text-emerald-300'
-  if (v >= 70) return 'text-amber-300'
-  return 'text-red-300'
+  if (v >= 90) return 'text-success'
+  if (v >= 70) return 'text-warning'
+  return 'text-destructive'
 }
 
 function scorePill(v: number) {
-  if (v >= 90) return 'bg-emerald-500/15 text-emerald-300'
-  if (v >= 70) return 'bg-amber-500/15 text-amber-300'
-  return 'bg-red-500/15 text-red-300'
+  if (v >= 90) return 'pill-base pill-ok'
+  if (v >= 70) return 'pill-base pill-warning'
+  return 'pill-base pill-critical'
 }
 
-const controlCls = 'h-9 rounded-xl border border-white/10 bg-slate-900/80 px-3 text-sm text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40'
+const controlCls = 'h-9 rounded-xl border border-border bg-card px-3 text-sm text-foreground font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40'
 
 export default function ScoresPage() {
   const [scores, setScores] = useState<TrailScore[]>([])
@@ -86,7 +86,7 @@ export default function ScoresPage() {
             onClick={fetchData}
             disabled={loading}
             aria-label="Refresh scores"
-            className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 text-white/50 hover:text-white disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="flex size-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -94,7 +94,7 @@ export default function ScoresPage() {
       </div>
 
       {error && (
-        <div role="alert" aria-live="polite" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-500/20">
+        <div role="alert" aria-live="polite" className="rounded-xl bg-destructive/8 px-4 py-3 text-sm text-destructive ring-1 ring-inset ring-destructive/20">
           {error}
         </div>
       )}
@@ -108,8 +108,8 @@ export default function ScoresPage() {
             { label: 'Data points',    value: String(scores.reduce((s, x) => s + Object.keys(x.scores).length, 0)) },
           ].map(({ label, value }) => (
             <article key={label} className="surface-card p-4">
-              <div className="text-caption text-white/40">{label}</div>
-              <div className={`mt-1.5 font-mono text-3xl font-light ${avg !== null && label === 'Average score' ? scoreColour(avg) : 'text-white'}`}>{value}</div>
+              <div className="text-caption text-muted-foreground">{label}</div>
+              <div className={`mt-1.5 font-mono text-3xl font-light ${avg !== null && label === 'Average score' ? scoreColour(avg) : 'text-foreground'}`}>{value}</div>
             </article>
           ))}
         </div>
@@ -131,15 +131,15 @@ export default function ScoresPage() {
           {scores.map(score => (
             <article key={score.id} className="surface-card p-4">
               <div className="mb-3 flex items-start justify-between gap-2">
-                <span className="text-sm font-medium leading-snug text-white">{score.name}</span>
-                <span className={`inline-flex h-6 shrink-0 items-center rounded-full px-2.5 text-[12px] font-medium whitespace-nowrap ${scorePill(score.average)}`}>
+                <span className="text-sm font-medium leading-snug text-foreground">{score.name}</span>
+                <span className={`shrink-0 ${scorePill(score.average)}`}>
                   {score.level}
                 </span>
               </div>
               <div className={`font-mono text-4xl font-light ${scoreColour(score.average)}`}>
                 {score.average.toFixed(1)}%
               </div>
-              <div className="mt-2 text-caption text-white/35">
+              <div className="mt-2 text-caption text-muted-foreground/70">
                 {Object.keys(score.scores).length} data points
               </div>
             </article>

@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils"
 
 /*
  * Button tiers — one Primary per visible context, everything else quieter:
- *  primary     filled emerald; the single most important action on screen
- *  secondary   emerald tint; important but not the sole action
- *  tertiary    neutral fill; standard utility actions
+ *  primary     filled indigo; the single most important action on screen
+ *  secondary   indigo tint; important but not the sole action
+ *  tertiary    bordered neutral (Linear-style); standard utility actions
  *  ghost       plain; lowest weight, nav-like actions
  *  destructive red tint; always pair with a confirmation
  * `default` and `outline` are kept as aliases (primary / tertiary) for
@@ -15,9 +15,9 @@ import { cn } from "@/lib/utils"
  */
 
 const primaryClasses =
-  "bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.15),0_1px_2px_rgb(0_0_0/0.3)] hover:brightness-110"
+  "bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.18),0_1px_2px_rgb(2_6_23/0.12)] hover:brightness-110"
 const tertiaryClasses =
-  "bg-white/[0.06] text-white/70 hover:bg-white/10 hover:text-white"
+  "border border-border bg-card text-foreground shadow-[0_1px_2px_rgb(2_6_23/0.04)] hover:bg-muted"
 
 const buttonVariants = cva(
   "group/button inline-flex shrink-0 items-center justify-center font-medium whitespace-nowrap transition-all duration-150 outline-none select-none focus-visible:ring-[3px] focus-visible:ring-ring/40 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 aria-invalid:ring-[3px] aria-invalid:ring-destructive/30 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -26,12 +26,12 @@ const buttonVariants = cva(
       variant: {
         primary: primaryClasses,
         default: primaryClasses,
-        secondary: "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/20",
+        secondary: "bg-primary/10 text-primary hover:bg-primary/15",
         tertiary: tertiaryClasses,
         outline: tertiaryClasses,
-        ghost: "text-white/50 hover:bg-white/[0.05] hover:text-white/85",
+        ghost: "text-muted-foreground hover:bg-muted hover:text-foreground",
         destructive:
-          "bg-red-500/10 text-red-300 hover:bg-red-500/20 focus-visible:ring-red-500/30",
+          "bg-destructive/10 text-destructive hover:bg-destructive/15 focus-visible:ring-destructive/30",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
