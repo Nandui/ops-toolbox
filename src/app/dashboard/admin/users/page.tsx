@@ -94,11 +94,12 @@ function UserModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm sm:items-center"
-      onClick={e => e.target === e.currentTarget && onClose()}
-    >
-      <div className="surface-elevated animate-scale-in my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg space-y-5 overflow-y-auto rounded-2xl p-6">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm">
+      <div
+        className="flex min-h-full items-end justify-center p-4 sm:items-center"
+        onClick={e => e.target === e.currentTarget && onClose()}
+      >
+        <div className="surface-elevated animate-scale-in w-full max-w-lg space-y-5 rounded-2xl p-6">
 
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -235,6 +236,7 @@ function UserModal({
           </Button>
         </div>
 
+        </div>
       </div>
     </div>
   )
